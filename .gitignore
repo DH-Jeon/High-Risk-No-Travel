@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+
+# 의존성/빌드
+node_modules/
+.next/
+out/
+
+# 환경변수 (API 키 절대 커밋 금지)
+.env
+.env*.local
+
+# 배포/도구
+.vercel/
+harinote/supabase/.temp/
+
+# Office 임시파일
+~$*
+*.hwp.lock
+
+# 로그
+*.log
