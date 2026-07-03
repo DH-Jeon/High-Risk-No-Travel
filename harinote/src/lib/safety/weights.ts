@@ -1,0 +1,252 @@
+/**
+ * 안전 점수 가중치·임계값 상수 — 모든 수치는 공공기관 공식 발표 기준을 근거로 한다.
+ *
+ * 산식(제안서): SafetyScore = 100 - (WeatherRisk + DisasterRisk + MedicalRisk + MobilityRisk)
+ * 감점 상한(제안서 표): 폭염 25 / 강수·강풍 20 / 미세먼지 15 / 산불·산사태 20 /
+ *                      응급의료 10 / 대피소 10 / 이동 위험 10(2주차)
+ */
+import type { Profile, RiskLevel } from "@/lib/safety/types";
+import type { PlaceEnvType } from "@/lib/tour/types";
+
+// ─────────────────────────────────────────────
+// 폭염 (상한 25)
+// ─────────────────────────────────────────────
+export const HEAT = {
+  /** 기상청 폭염주의보 발표 기준: 일 최고 체감온도 33℃ 이상 지속 예상 */
+  ADVISORY_C: 33,
+  /** 기상청 폭염경보 발표 기준: 일 최고 체감온도 35℃ 이상 지속 예상 */
+  WARNING_C: 35,
+  /** 33℃ 미만 저감점 구간의 시작(28℃부터 완만히 상승) */
+  RAMP_START_C: 28,
+  MAX_POINTS: 25,
+} as const;
+
+/** 최고기온(℃) → 폭염 기본 감점. 주의보(33℃)에서 중간, 경보(35℃)부터 상한 근접. */
+export function heatPoints(tempC: number): number {
+  if (tempC < HEAT.RAMP_START_C) return 0;
+  if (tempC < HEAT.ADVISORY_C) {
+    // 28~33℃: 0 → 8점 완만 상승 (저감점)
+    return ((tempC - HEAT.RAMP_START_C) / (HEAT.ADVISORY_C - HEAT.RAMP_START_C)) * 8;
+  }
+  if (tempC < HEAT.WARNING_C) {
+    // 폭염주의보 구간 33~35℃: 12 → 22점
+    return 12 + (tempC - HEAT.ADVISORY_C) * 5;
+  }
+  // 폭염경보 35℃+: 22점에서 시작해 상한 25점까지
+  return Math.min(HEAT.MAX_POINTS, 22 + (tempC - HEAT.WARNING_C) * 1.5);
+}
+
+// ─────────────────────────────────────────────
+// 강수·강풍 (합산 상한 20)
+// ─────────────────────────────────────────────
+export const RAIN_WIND = {
+  /** 기상청 단기예보 강수확률 구간: 30% 이상부터 '비 가능성' 안내 통용 */
+  PROB_LOW_PCT: 30,
+  PROB_MID_PCT: 60,
+  PROB_HIGH_PCT: 80,
+  /** 기상청 호우주의보 발표 기준: 3시간 강수량 60mm 이상 예상 */
+  HEAVY_RAIN_MM: 60,
+  /** 호우주의보의 절반 수준 — 우산·우비 필수 구간으로 가점 */
+  MODERATE_RAIN_MM: 30,
+  /** 기상청 강풍주의보 발표 기준: 육상 풍속 14m/s 이상 예상 */
+  WIND_ADVISORY_MS: 14,
+  /** 강풍주의보 미만이지만 체감 위험이 커지는 풍속(주의보 기준의 약 2/3) */
+  WIND_CAUTION_MS: 9,
+  MAX_POINTS: 20,
+} as const;
+
+/** 강수확률(%) + 예상 강수량(mm) → 강수 기본 감점 (0~18) */
+export function rainPoints(rainProbPct: number, rainMm?: number): number {
+  let pts = 0;
+  if (rainProbPct >= RAIN_WIND.PROB_HIGH_PCT) pts = 12;
+  else if (rainProbPct >= RAIN_WIND.PROB_MID_PCT) pts = 8;
+  else if (rainProbPct >= RAIN_WIND.PROB_LOW_PCT) pts = 4;
+  if (rainMm !== undefined) {
+    if (rainMm >= RAIN_WIND.HEAVY_RAIN_MM) pts += 6;
+    else if (rainMm >= RAIN_WIND.MODERATE_RAIN_MM) pts += 3;
+  }
+  return pts;
+}
+
+/** 풍속(m/s) → 강풍 기본 감점 (0~8) */
+export function windPoints(windMs: number): number {
+  if (windMs >= RAIN_WIND.WIND_ADVISORY_MS) return 8;
+  if (windMs >= RAIN_WIND.WIND_CAUTION_MS) return 4;
+  return 0;
+}
+
+// ─────────────────────────────────────────────
+// 미세먼지 (상한 15)
+// ─────────────────────────────────────────────
+/** 환경부 초미세먼지(PM2.5) 예보 등급 기준(㎍/㎥): 좋음 0~15, 보통 16~35, 나쁨 36~75, 매우나쁨 76+ */
+export const PM25 = {
+  GOOD_MAX: 15,
+  MODERATE_MAX: 35,
+  BAD_MAX: 75,
+  MAX_POINTS: 15,
+} as const;
+
+export const PM25_GRADE_LABEL = {
+  good: "좋음",
+  moderate: "보통",
+  bad: "나쁨",
+  very_bad: "매우나쁨",
+} as const;
+
+/** PM2.5(㎍/㎥) → 미세먼지 기본 감점 */
+export function pmPoints(pm25: number): number {
+  if (pm25 <= PM25.GOOD_MAX) return 0;
+  if (pm25 <= PM25.MODERATE_MAX) return 3;
+  if (pm25 <= PM25.BAD_MAX) return 8;
+  return PM25.MAX_POINTS;
+}
+
+export function pmGradeLabel(pm25: number): string {
+  if (pm25 <= PM25.GOOD_MAX) return PM25_GRADE_LABEL.good;
+  if (pm25 <= PM25.MODERATE_MAX) return PM25_GRADE_LABEL.moderate;
+  if (pm25 <= PM25.BAD_MAX) return PM25_GRADE_LABEL.bad;
+  return PM25_GRADE_LABEL.very_bad;
+}
+
+// ─────────────────────────────────────────────
+// 산불·산사태 (상한 20)
+// ─────────────────────────────────────────────
+/** 산림청 산불위험예보 4단계: 1 낮음, 2 다소높음, 3 높음, 4 심각 */
+export const FOREST_FIRE = {
+  LEVEL_LABEL: { 1: "낮음", 2: "다소높음", 3: "높음", 4: "심각" } as Record<
+    1 | 2 | 3 | 4,
+    string
+  >,
+  /** 단계별 기본 감점 */
+  POINTS_BY_LEVEL: { 1: 0, 2: 6, 3: 12, 4: 20 } as Record<1 | 2 | 3 | 4, number>,
+  MAX_POINTS: 20,
+} as const;
+
+export function forestFirePoints(level: 1 | 2 | 3 | 4): number {
+  return FOREST_FIRE.POINTS_BY_LEVEL[level];
+}
+
+// ─────────────────────────────────────────────
+// 응급의료 접근성 (상한 10)
+// ─────────────────────────────────────────────
+/**
+ * 중증 응급환자 골든타임 확보 기준 거리.
+ * 보건복지부 응급의료 취약지 판정 기준(지역응급의료센터 30분/1시간 내 접근)을
+ * 도로 이동거리로 환산해 10km 이내 양호 / 10~20km 주의 / 30km+ 취약으로 구간화.
+ */
+export const MEDICAL = {
+  NEAR_KM: 10,
+  MID_KM: 20,
+  FAR_KM: 30,
+  MAX_POINTS: 10,
+} as const;
+
+/** 최근접 응급의료기관 거리(km) → 기본 감점 */
+export function medicalPoints(km: number): number {
+  if (km >= MEDICAL.FAR_KM) return MEDICAL.MAX_POINTS;
+  if (km > MEDICAL.MID_KM) {
+    // 20~30km: 5 → 10점
+    return 5 + ((km - MEDICAL.MID_KM) / (MEDICAL.FAR_KM - MEDICAL.MID_KM)) * 5;
+  }
+  if (km > MEDICAL.NEAR_KM) {
+    // 10~20km: 2 → 5점
+    return 2 + ((km - MEDICAL.NEAR_KM) / (MEDICAL.MID_KM - MEDICAL.NEAR_KM)) * 3;
+  }
+  // 10km 이내: 0 → 2점 (소량)
+  return (km / MEDICAL.NEAR_KM) * 2;
+}
+
+// ─────────────────────────────────────────────
+// 대피소 접근성 (상한 10, 입력 없으면 0점 — 불이익 금지)
+// ─────────────────────────────────────────────
+/**
+ * 행정안전부 민방위 대피시설 지정 원칙(주거지에서 도보 5분 내외 접근 권장)을 준용해
+ * 도보 접근 가능권 약 1km를 기준으로 구간화.
+ */
+export const SHELTER = {
+  WALKABLE_KM: 1,
+  NEAR_KM: 3,
+  MID_KM: 5,
+  MAX_POINTS: 10,
+} as const;
+
+/** 최근접 대피소 거리(km) → 기본 감점 */
+export function shelterPoints(km: number): number {
+  if (km <= SHELTER.WALKABLE_KM) return 0;
+  if (km <= SHELTER.NEAR_KM) return 3;
+  if (km <= SHELTER.MID_KM) return 6;
+  return SHELTER.MAX_POINTS;
+}
+
+// ─────────────────────────────────────────────
+// 이동 위험 (상한 10, 2주차 — roadRisk 입력 없으면 0점)
+// ─────────────────────────────────────────────
+export const ROAD = {
+  MAX_POINTS: 10,
+} as const;
+
+/** 도로교통공단 경로 위험 지수 0~1 → 기본 감점 */
+export function roadPoints(roadRisk: number): number {
+  return Math.min(1, Math.max(0, roadRisk)) * ROAD.MAX_POINTS;
+}
+
+// ─────────────────────────────────────────────
+// 환경 유형 가중 — TourAPI 카테고리 기반 자체 분류(PlaceEnvType)를 점수에 반영
+// ─────────────────────────────────────────────
+export interface EnvWeight {
+  heat: number;
+  rain: number;
+  wind: number;
+  pm: number;
+  fire: number;
+}
+
+export const ENV_WEIGHT: Record<PlaceEnvType, EnvWeight> = {
+  /** 실내는 기상 영향이 낮다 */
+  indoor: { heat: 0.3, rain: 0.3, wind: 0.3, pm: 0.3, fire: 1.0 },
+  /** 계곡·수변: 호우 시 급류·불어남 위험 */
+  outdoor_water: { heat: 1.0, rain: 1.5, wind: 1.0, pm: 1.0, fire: 1.0 },
+  /** 산악: 강풍·산불 위험 가중 */
+  outdoor_mountain: { heat: 1.0, rain: 1.0, wind: 1.3, pm: 1.0, fire: 1.3 },
+  /** 해안: 강풍 위험 가중 */
+  outdoor_coast: { heat: 1.0, rain: 1.0, wind: 1.5, pm: 1.0, fire: 1.0 },
+  outdoor_general: { heat: 1.0, rain: 1.0, wind: 1.0, pm: 1.0, fire: 1.0 },
+};
+
+// ─────────────────────────────────────────────
+// 프로필 가중 (제안서 약속)
+// ─────────────────────────────────────────────
+export interface ProfileWeight {
+  heat: number;
+  pm: number;
+  medical: number;
+  road: number;
+}
+
+export const PROFILE_WEIGHT: Record<Profile, ProfileWeight> = {
+  default: { heat: 1.0, pm: 1.0, medical: 1.0, road: 1.0 },
+  /** 아이 동반: 폭염·미세먼지 민감 */
+  with_kids: { heat: 1.3, pm: 1.3, medical: 1.0, road: 1.0 },
+  /** 부모님 동반: 응급의료 접근성 민감 */
+  with_seniors: { heat: 1.0, pm: 1.0, medical: 1.5, road: 1.0 },
+  /** 자차 이동: 도로 위험 민감 */
+  own_car: { heat: 1.0, pm: 1.0, medical: 1.0, road: 1.5 },
+};
+
+// ─────────────────────────────────────────────
+// 등급/레벨 컷
+// ─────────────────────────────────────────────
+/** 점수 등급 컷: 70 이상 low(주의 요인 낮음), 40~69 moderate, 40 미만 high */
+export function gradeForScore(score: number): RiskLevel {
+  if (score >= 70) return "low";
+  if (score >= 40) return "moderate";
+  return "high";
+}
+
+/** 요인 레벨: 감점/상한 비율 1/3 미만 low, 2/3 미만 moderate, 이상 high */
+export function levelForPoints(points: number, maxPoints: number): RiskLevel {
+  const ratio = maxPoints > 0 ? points / maxPoints : 0;
+  if (ratio < 1 / 3) return "low";
+  if (ratio < 2 / 3) return "moderate";
+  return "high";
+}

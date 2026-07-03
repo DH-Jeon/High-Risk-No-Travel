@@ -1,0 +1,172 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { getPlaceWithSafety } from "@/lib/datasource";
+import { CONTENT_TYPE_LABEL, ENV_TYPE_LABEL } from "@/lib/tour/types";
+import { PROFILE_LABEL } from "@/lib/safety/types";
+import ProfileChips from "@/components/ProfileChips";
+import RiskBreakdownBar from "@/components/RiskBreakdownBar";
+import SafetyScoreBadge from "@/components/SafetyScoreBadge";
+import {
+  first,
+  parseProfile,
+  profileParam,
+  buildQuery,
+  type SearchParamValue,
+} from "@/components/search-params";
+
+interface Props {
+  params: Promise<{ contentId: string }>;
+  searchParams: Promise<Record<string, SearchParamValue>>;
+}
+
+function parseContentId(raw: string): number | null {
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const contentId = parseContentId((await params).contentId);
+  if (contentId === null) return { title: "관광지 상세" };
+  const place = await getPlaceWithSafety(contentId);
+  return { title: place ? `${place.title} 안전 점수` : "관광지 상세" };
+}
+
+const CATEGORY_CARDS = [
+  { key: "weatherRisk", icon: "🌤️", label: "기상" },
+  { key: "disasterRisk", icon: "⚠️", label: "재난" },
+  { key: "medicalRisk", icon: "🏥", label: "의료" },
+  { key: "mobilityRisk", icon: "🚗", label: "이동" },
+] as const;
+
+export default async function PlaceDetailPage({ params, searchParams }: Props) {
+  const [{ contentId: rawId }, sp] = await Promise.all([params, searchParams]);
+  const contentId = parseContentId(rawId);
+  if (contentId === null) notFound();
+
+  const profile = parseProfile(sp.profile);
+  const place = await getPlaceWithSafety(contentId, profile);
+  if (!place) notFound();
+
+  const { safety } = place;
+
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-8">
+      <Link
+        href={`/places${buildQuery({ profile: profileParam(profile) })}`}
+        className="inline-flex items-center gap-1 text-sm font-semibold text-slate-500 transition-colors hover:text-teal-700"
+      >
+        <span aria-hidden="true">←</span> 목록으로
+      </Link>
+
+      {/* 상단: 제목·주소·뱃지 */}
+      <div className="mt-4">
+        <div className="flex flex-wrap gap-1.5">
+          <span className="rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-semibold text-teal-700 ring-1 ring-teal-200">
+            {CONTENT_TYPE_LABEL[place.contentTypeId]}
+          </span>
+          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
+            {ENV_TYPE_LABEL[place.envType]}
+          </span>
+        </div>
+        <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
+          {place.title}
+        </h1>
+        <p className="mt-1.5 text-sm text-slate-500 sm:text-base">
+          {place.addr}
+          {place.tel && <span className="ml-2 text-slate-400">{place.tel}</span>}
+        </p>
+      </div>
+
+      {/* 안전 점수 */}
+      <section className="mt-6">
+        <SafetyScoreBadge score={safety.score} grade={safety.grade} size="lg" />
+        <div className="mt-4">
+          <p className="mb-2 text-sm font-semibold text-slate-600">
+            동행에 따라 점수가 달라져요 —{" "}
+            <strong className="text-teal-700">
+              {PROFILE_LABEL[profile]} 기준
+            </strong>
+          </p>
+          <ProfileChips basePath={`/places/${place.contentId}`} current={profile} />
+        </div>
+      </section>
+
+      {/* 카테고리 소계 */}
+      <section className="mt-8">
+        <h2 className="text-lg font-bold text-slate-900">분야별 감점 요약</h2>
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {CATEGORY_CARDS.map((c) => {
+            const points = safety[c.key];
+            return (
+              <div
+                key={c.key}
+                className="rounded-xl bg-white p-4 text-center ring-1 ring-slate-200"
+              >
+                <span className="text-2xl" aria-hidden="true">
+                  {c.icon}
+                </span>
+                <p className="mt-1 text-xs font-semibold text-slate-500">
+                  {c.label}
+                </p>
+                <p
+                  className={`text-lg font-extrabold tabular-nums ${
+                    points > 0 ? "text-slate-800" : "text-slate-300"
+                  }`}
+                >
+                  −{points}점
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* 요인별 상세 */}
+      <section className="mt-8">
+        <h2 className="text-lg font-bold text-slate-900">
+          왜 이 점수인가요?
+        </h2>
+        <p className="mb-3 mt-1 text-sm text-slate-500">
+          공식 기준(기상특보 임계값 등) 대비 오늘 예보·환경 값으로 감점을
+          계산했어요.
+        </p>
+        <RiskBreakdownBar factors={safety.factors} />
+      </section>
+
+      {/* 소개 */}
+      {place.overview && (
+        <section className="mt-8">
+          <h2 className="text-lg font-bold text-slate-900">소개</h2>
+          <p className="mt-2 rounded-xl bg-white p-4 text-sm leading-relaxed text-slate-600 ring-1 ring-slate-200">
+            {place.overview}
+          </p>
+        </section>
+      )}
+
+      {/* 대체지 추천 자리 */}
+      <section className="mt-8">
+        <h2 className="text-lg font-bold text-slate-900">
+          안전한 대체지 추천
+        </h2>
+        <div className="mt-3 rounded-2xl border-2 border-dashed border-teal-200 bg-teal-50/50 px-6 py-10 text-center">
+          <p className="text-3xl" aria-hidden="true">
+            🧭
+          </p>
+          <p className="mt-3 font-bold text-slate-700">
+            주변 대체지 분석 준비 중이에요
+          </p>
+          <p className="mt-1 text-sm text-slate-500">
+            주의 요인이 높은 날, 같은 유형의 더 안전한 주변 관광지를 이 자리에서
+            추천해 드릴게요.
+          </p>
+        </div>
+      </section>
+
+      <p className="mt-8 text-xs leading-relaxed text-slate-400">
+        본 점수는 공공데이터 기반 참고 정보이며 안전을 보장하지 않습니다. 방문
+        전 기상특보와 현지 안내를 확인하세요.
+      </p>
+    </div>
+  );
+}
