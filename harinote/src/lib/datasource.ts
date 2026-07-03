@@ -1,9 +1,10 @@
 /**
  * [계약 파일] 데이터 소스 스위치 — UI는 이 모듈만 통해 데이터에 접근한다.
  *
- * DATA_SOURCE=mock : fixtures 기반 (기본값, API 키 불필요)
- * DATA_SOURCE=db   : Supabase 조회 (인프라 연결 후 활성화)
- * DATA_SOURCE=live : TourAPI 직접 호출 (디버깅·스키마 검증용)
+ * DATA_SOURCE=json : src/data/gangwon.json — TourAPI 수집 실데이터 내장 (기본값, ADR-004)
+ * DATA_SOURCE=mock : 수기 fixture 35건 (키·수집 데이터 없이 개발/테스트)
+ * DATA_SOURCE=db   : Supabase 조회 (DB 도입 시점에 활성화)
+ * DATA_SOURCE=live : TourAPI 직접 호출 (디버깅·스키마 검증용 — 페이지당 수십 초, 서비스 경로 아님)
  *
  * 서버 전용 모듈 — 클라이언트 컴포넌트에서 import 금지.
  */
@@ -14,12 +15,12 @@ import { computeSafetyScore } from "@/lib/safety/score";
 import { mockRiskInputFor } from "@/fixtures/safety/risk-inputs";
 import { gangwonPlaces } from "@/fixtures/tour/gangwon";
 
-export type DataSource = "mock" | "db" | "live";
+export type DataSource = "json" | "mock" | "db" | "live";
 
 export function getDataSource(): DataSource {
   const v = process.env.DATA_SOURCE;
-  if (v === "db" || v === "live") return v;
-  return "mock";
+  if (v === "mock" || v === "db" || v === "live") return v;
+  return "json";
 }
 
 export interface PlaceQuery {
@@ -42,10 +43,13 @@ const loadPlaces = cache(async (): Promise<Place[]> => {
   }
   if (source === "db") {
     throw new Error(
-      "DATA_SOURCE=db는 Supabase 연결 후 지원됩니다. mock 또는 live를 사용하세요.",
+      "DATA_SOURCE=db는 Supabase 도입 시점(ADR-004)에 지원됩니다. json 또는 mock을 사용하세요.",
     );
   }
-  return gangwonPlaces;
+  if (source === "mock") return gangwonPlaces;
+  // json (기본): pnpm seed가 생성한 TourAPI 수집 실데이터
+  const data = await import("@/data/gangwon.json");
+  return data.default as Place[];
 });
 
 function matches(place: Place, query?: PlaceQuery): boolean {
