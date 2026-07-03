@@ -1,0 +1,72 @@
+import type { RiskLevel } from "@/lib/safety/types";
+import { GRADE_LABEL } from "@/lib/safety/types";
+
+const GRADE_STYLE: Record<
+  RiskLevel,
+  { pill: string; dot: string; text: string; ring: string }
+> = {
+  low: {
+    pill: "bg-emerald-50 text-emerald-800 ring-emerald-200",
+    dot: "bg-emerald-500",
+    text: "text-emerald-700",
+    ring: "ring-emerald-200",
+  },
+  moderate: {
+    pill: "bg-amber-50 text-amber-800 ring-amber-200",
+    dot: "bg-amber-500",
+    text: "text-amber-700",
+    ring: "ring-amber-200",
+  },
+  high: {
+    pill: "bg-red-50 text-red-800 ring-red-200",
+    dot: "bg-red-500",
+    text: "text-red-700",
+    ring: "ring-red-200",
+  },
+};
+
+interface Props {
+  score: number;
+  grade: RiskLevel;
+  /** sm: 리스트 카드용 알약형, lg: 상세 페이지용 대형 */
+  size?: "sm" | "lg";
+}
+
+export default function SafetyScoreBadge({ score, grade, size = "sm" }: Props) {
+  const s = GRADE_STYLE[grade];
+
+  if (size === "lg") {
+    return (
+      <div
+        className={`flex items-center gap-4 rounded-2xl bg-white p-5 ring-1 ${s.ring}`}
+      >
+        <div className="flex flex-col items-center">
+          <span className={`text-5xl font-extrabold tabular-nums ${s.text}`}>
+            {score}
+          </span>
+          <span className="text-xs font-medium text-slate-400">/ 100점</span>
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-slate-500">
+            오늘의 안전 점수
+          </p>
+          <p className={`flex items-center gap-1.5 font-bold ${s.text}`}>
+            <span className={`h-2.5 w-2.5 rounded-full ${s.dot}`} />
+            {GRADE_LABEL[grade]}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${s.pill}`}
+    >
+      <span className={`h-2 w-2 rounded-full ${s.dot}`} />
+      <span className="tabular-nums">{score}점</span>
+      <span aria-hidden="true">·</span>
+      {GRADE_LABEL[grade]}
+    </span>
+  );
+}
