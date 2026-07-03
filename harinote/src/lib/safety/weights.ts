@@ -122,8 +122,14 @@ export const FOREST_FIRE = {
   MAX_POINTS: 20,
 } as const;
 
-export function forestFirePoints(level: 1 | 2 | 3 | 4): number {
-  return FOREST_FIRE.POINTS_BY_LEVEL[level];
+/** 외부 API 이상치(0, 5 등) 유입 시 NaN 전파 방지 — 1~4로 clamp */
+export function normalizeForestFireLevel(level: number): 1 | 2 | 3 | 4 {
+  const n = Math.round(level);
+  return (n < 1 ? 1 : n > 4 ? 4 : n) as 1 | 2 | 3 | 4;
+}
+
+export function forestFirePoints(level: number): number {
+  return FOREST_FIRE.POINTS_BY_LEVEL[normalizeForestFireLevel(level)];
 }
 
 // ─────────────────────────────────────────────

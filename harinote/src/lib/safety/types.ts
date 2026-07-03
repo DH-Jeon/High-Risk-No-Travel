@@ -78,7 +78,11 @@ export interface RiskBreakdown {
   grade: RiskLevel;
   profile: Profile;
   factors: RiskFactor[];
-  /** 제안서 산식의 카테고리 소계 (감점 합) */
+  /**
+   * 제안서 산식의 카테고리 소계 (감점 원값 합).
+   * 총 감점이 100을 넘는 극단 입력에서는 score가 0으로 고정되어
+   * 소계 합이 (100 - score)를 초과할 수 있다.
+   */
   weatherRisk: number;
   disasterRisk: number;
   medicalRisk: number;

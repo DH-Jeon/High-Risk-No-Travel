@@ -7,6 +7,7 @@
  *
  * 서버 전용 모듈 — 클라이언트 컴포넌트에서 import 금지.
  */
+import { cache } from "react";
 import type { Place } from "@/lib/tour/types";
 import type { Profile, RiskBreakdown, RiskInput } from "@/lib/safety/types";
 import { computeSafetyScore } from "@/lib/safety/score";
@@ -32,7 +33,8 @@ export interface PlaceWithSafety extends Place {
   safety: RiskBreakdown;
 }
 
-async function loadPlaces(): Promise<Place[]> {
+/** 요청 스코프 메모이즈(React cache) — generateMetadata와 페이지 본문의 중복 로드를 1회로 (live 쿼터 보호) */
+const loadPlaces = cache(async (): Promise<Place[]> => {
   const source = getDataSource();
   if (source === "live") {
     const { fetchGangwonPlaces } = await import("@/lib/tour/client");
@@ -44,7 +46,7 @@ async function loadPlaces(): Promise<Place[]> {
     );
   }
   return gangwonPlaces;
-}
+});
 
 function matches(place: Place, query?: PlaceQuery): boolean {
   if (!query) return true;

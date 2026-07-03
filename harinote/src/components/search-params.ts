@@ -1,6 +1,9 @@
 /** URL 쿼리 파라미터 파싱 유틸 — UI 전용 */
-import type { Profile } from "@/lib/safety/types";
-import type { ContentTypeId } from "@/lib/tour/types";
+import { PROFILE_LABEL, type Profile } from "@/lib/safety/types";
+import {
+  SUPPORTED_CONTENT_TYPE_IDS,
+  type ContentTypeId,
+} from "@/lib/tour/types";
 
 export type SearchParamValue = string | string[] | undefined;
 
@@ -8,26 +11,16 @@ export function first(v: SearchParamValue): string | undefined {
   return Array.isArray(v) ? v[0] : v;
 }
 
-const PROFILES: readonly Profile[] = [
-  "default",
-  "with_kids",
-  "with_seniors",
-  "own_car",
-];
-
 export function parseProfile(v: SearchParamValue): Profile {
   const s = first(v);
-  return PROFILES.includes(s as Profile) ? (s as Profile) : "default";
+  return s && s in PROFILE_LABEL ? (s as Profile) : "default";
 }
-
-/** 리스트 필터 탭에서 지원하는 유형 */
-const FILTER_TYPE_IDS = [12, 14, 39] as const;
 
 export function parseContentTypeId(
   v: SearchParamValue,
 ): ContentTypeId | undefined {
   const n = Number(first(v));
-  return (FILTER_TYPE_IDS as readonly number[]).includes(n)
+  return (SUPPORTED_CONTENT_TYPE_IDS as readonly number[]).includes(n)
     ? (n as ContentTypeId)
     : undefined;
 }

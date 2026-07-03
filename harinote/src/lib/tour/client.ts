@@ -5,6 +5,7 @@
  * 외부 의존성 없음 (Node 내장 fetch 사용).
  */
 import type { ContentTypeId, Place, TourApiPlaceItem } from "./types";
+import { CONTENT_TYPE_LABEL, SUPPORTED_CONTENT_TYPE_IDS } from "./types";
 import { classifyEnvType } from "./classify";
 import {
   extractItems,
@@ -15,7 +16,7 @@ import {
 const BASE_URL = "https://apis.data.go.kr/B551011/KorService2";
 const GANGWON_AREA_CODE = "32";
 /** 시딩 대상: 12 관광지, 14 문화시설, 39 음식점 */
-const TARGET_CONTENT_TYPES: ContentTypeId[] = [12, 14, 39];
+const TARGET_CONTENT_TYPES: readonly ContentTypeId[] = SUPPORTED_CONTENT_TYPE_IDS;
 /** KorService2 최대 100건/페이지 */
 const NUM_OF_ROWS = 100;
 
@@ -116,7 +117,9 @@ export async function fetchAreaBasedPage(
   };
 }
 
-const VALID_CONTENT_TYPES = new Set<number>([12, 14, 15, 28, 32, 38, 39]);
+const VALID_CONTENT_TYPES = new Set<number>(
+  Object.keys(CONTENT_TYPE_LABEL).map(Number),
+);
 
 /**
  * TourAPI 원본 item → Place 정규화.
@@ -178,7 +181,9 @@ export async function fetchGangwonPlaces(): Promise<Place[]> {
         const place = toPlace(item);
         if (place) places.push(place);
       }
-      if (items.length === 0 || pageNo * NUM_OF_ROWS >= totalCount) break;
+      // 페이지가 가득 차지 않으면 마지막 페이지 — totalCount 누락(0) 응답에도 안전
+      if (items.length < NUM_OF_ROWS) break;
+      if (totalCount > 0 && pageNo * NUM_OF_ROWS >= totalCount) break;
       pageNo += 1;
     }
   }

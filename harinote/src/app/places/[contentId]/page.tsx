@@ -8,7 +8,6 @@ import ProfileChips from "@/components/ProfileChips";
 import RiskBreakdownBar from "@/components/RiskBreakdownBar";
 import SafetyScoreBadge from "@/components/SafetyScoreBadge";
 import {
-  first,
   parseProfile,
   profileParam,
   buildQuery,
