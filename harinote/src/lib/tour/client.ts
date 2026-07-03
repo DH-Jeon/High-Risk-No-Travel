@@ -54,18 +54,31 @@ export async function fetchAreaBasedPage(
   });
   const url = `${BASE_URL}/areaBasedList2?${params.toString()}`;
 
-  let res: Response;
-  try {
-    res = await fetch(url);
-  } catch (cause) {
-    throw new Error(
-      `TourAPI 호출에 실패했습니다 (네트워크 오류, contentTypeId=${contentTypeId}, pageNo=${pageNo}).`,
-      { cause },
-    );
+  // 게이트웨이가 간헐적으로 5xx(504 등)를 반환한다 — 지수 백오프로 최대 3회 시도
+  const MAX_ATTEMPTS = 3;
+  let res: Response | undefined;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      res = await fetch(url);
+    } catch (cause) {
+      if (attempt === MAX_ATTEMPTS) {
+        throw new Error(
+          `TourAPI 호출에 실패했습니다 (네트워크 오류, contentTypeId=${contentTypeId}, pageNo=${pageNo}).`,
+          { cause },
+        );
+      }
+      await new Promise((r) => setTimeout(r, 1000 * attempt));
+      continue;
+    }
+    if (res.status >= 500 && attempt < MAX_ATTEMPTS) {
+      await new Promise((r) => setTimeout(r, 1000 * attempt));
+      continue;
+    }
+    break;
   }
-  if (!res.ok) {
+  if (!res || !res.ok) {
     throw new Error(
-      `TourAPI 호출이 실패했습니다: HTTP ${res.status} (contentTypeId=${contentTypeId}, pageNo=${pageNo})`,
+      `TourAPI 호출이 실패했습니다: HTTP ${res?.status ?? "?"} (contentTypeId=${contentTypeId}, pageNo=${pageNo})`,
     );
   }
 

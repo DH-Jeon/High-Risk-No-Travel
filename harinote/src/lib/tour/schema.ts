@@ -36,6 +36,11 @@ export const tourApiPlaceItemSchema = z.looseObject({
   tel: optionalApiString,
   createdtime: optionalApiString,
   modifiedtime: optionalApiString,
+  // 실응답 필드 diff로 확인된 추가 필드 (2026-07 check-tourapi)
+  zipcode: optionalApiString,
+  cpyrhtDivCd: optionalApiString, // 저작권 유형
+  lDongRegnCd: optionalApiString, // 법정동 시도 코드
+  lDongSignguCd: optionalApiString, // 법정동 시군구 코드
 });
 
 /** check-tourapi 스크립트의 필드 diff에 사용 */
