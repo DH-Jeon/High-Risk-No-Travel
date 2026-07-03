@@ -59,6 +59,7 @@ export async function upsertPlacesToSupabase(places: Place[]): Promise<void> {
       "NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY가 필요합니다 (.env.local).",
     );
   }
+  console.log(`(스텁) ${places.length}건 upsert 대기 — 인프라 연결 후 활성화`);
   // TODO(인프라 연결 후 활성화):
   // const rows = places.map((p) => ({
   //   content_id: p.contentId,

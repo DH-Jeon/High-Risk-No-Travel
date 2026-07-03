@@ -20,3 +20,4 @@ harinote/supabase/.temp/
 
 # 로그
 *.log
+.gstack/

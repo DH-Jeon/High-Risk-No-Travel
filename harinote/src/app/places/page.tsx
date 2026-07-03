@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getPlacesWithSafety } from "@/lib/datasource";
+import {
+  CONTENT_TYPE_LABEL,
+  SUPPORTED_CONTENT_TYPE_IDS,
+} from "@/lib/tour/types";
 import PlaceCard from "@/components/PlaceCard";
 import ProfileChips from "@/components/ProfileChips";
 import SearchBox from "@/components/SearchBox";
@@ -19,9 +23,10 @@ export const metadata: Metadata = {
 
 const TYPE_TABS: { label: string; value?: number }[] = [
   { label: "전체" },
-  { label: "관광지", value: 12 },
-  { label: "문화시설", value: 14 },
-  { label: "음식점", value: 39 },
+  ...SUPPORTED_CONTENT_TYPE_IDS.map((id) => ({
+    label: CONTENT_TYPE_LABEL[id],
+    value: id,
+  })),
 ];
 
 interface Props {

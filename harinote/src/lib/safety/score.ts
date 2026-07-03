@@ -25,6 +25,7 @@ import {
   SHELTER,
   forestFirePoints,
   gradeForScore,
+  normalizeForestFireLevel,
   heatPoints,
   levelForPoints,
   medicalPoints,
@@ -116,21 +117,22 @@ export function computeSafetyScore(
   });
 
   // ── 산불·산사태 (Disaster) ──
+  const fireLevel = normalizeForestFireLevel(input.forestFireLevel);
   const fire = finalize(
-    forestFirePoints(input.forestFireLevel),
+    forestFirePoints(fireLevel),
     env.fire,
     FOREST_FIRE.MAX_POINTS,
   );
   factors.push({
     key: "forest_fire",
     label: "산불·산사태",
-    value: input.forestFireLevel,
+    value: fireLevel,
     unit: "단계",
     threshold: 3,
     points: fire,
     maxPoints: FOREST_FIRE.MAX_POINTS,
     level: levelForPoints(fire, FOREST_FIRE.MAX_POINTS),
-    description: `산불위험 ${input.forestFireLevel}단계 — 산림청 '${FOREST_FIRE.LEVEL_LABEL[input.forestFireLevel]}'`,
+    description: `산불위험 ${fireLevel}단계 — 산림청 '${FOREST_FIRE.LEVEL_LABEL[fireLevel]}'`,
   });
 
   // ── 응급의료 접근성 (Medical) ──
@@ -189,7 +191,9 @@ export function computeSafetyScore(
     });
   }
 
-  // ── 합산: 소계·점수 일관성 보장 (score = 100 - 감점 합, 0~100 clamp) ──
+  // ── 합산: score = 100 - 감점 합 (0~100 clamp) ──
+  // 요인별 상한 총합은 110점이므로 극단 입력에서 총 감점이 100을 넘을 수 있다.
+  // 이때 score는 0으로 고정되고 소계는 감점 원값을 보존한다 (소계 합 > 100 - score 허용).
   const weatherRisk = heat + rainWind + pm;
   const disasterRisk = fire + shelter;
   const medicalRisk = medical;

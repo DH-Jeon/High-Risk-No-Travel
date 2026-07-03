@@ -16,6 +16,11 @@ export const CONTENT_TYPE_LABEL: Record<ContentTypeId, string> = {
   39: "음식점",
 };
 
+/** 앱이 수집(시딩)하고 필터 탭으로 노출하는 콘텐츠 유형 — 단일 정의 */
+export const SUPPORTED_CONTENT_TYPE_IDS = [
+  12, 14, 39,
+] as const satisfies readonly ContentTypeId[];
+
 /**
  * KorService2 areaBasedList2 응답 item 원본 형태 (모든 값이 문자열).
  * mapx = 경도(lng), mapy = 위도(lat) — 순서 주의!
