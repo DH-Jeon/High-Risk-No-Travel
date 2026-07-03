@@ -46,6 +46,24 @@ async function main(): Promise<void> {
   console.log(`    HTTP ${res.status}`);
   const text = await res.text();
 
+  // 게이트웨이 텍스트 오류: 키 미인식(Unauthorized) / 권한 미반영(Forbidden)
+  if (!res.ok && !text.trimStart().startsWith("<")) {
+    console.error(`[x] 게이트웨이 오류 응답: ${text.trim().slice(0, 100)}`);
+    if (/forbidden/i.test(text)) {
+      console.error(
+        "    → 키는 인식되지만 이 서비스 사용 권한이 아직 없습니다.\n" +
+          "      발급 직후라면 반영까지 1~2시간 대기 후 재시도하세요.\n" +
+          "      계속 실패하면 발급처에서 '국문 관광정보'(KorService2) 활용 신청이 승인됐는지 확인하세요.",
+      );
+    } else if (/unauthorized/i.test(text)) {
+      console.error(
+        "    → 키를 인식하지 못합니다. 복사 누락/공백 여부와 디코딩 키인지 확인하세요.",
+      );
+    }
+    process.exitCode = 1;
+    return;
+  }
+
   if (text.trimStart().startsWith("<")) {
     const authMsg = /<returnAuthMsg>([^<]*)<\/returnAuthMsg>/.exec(text)?.[1];
     const reasonCode = /<returnReasonCode>([^<]*)<\/returnReasonCode>/.exec(
