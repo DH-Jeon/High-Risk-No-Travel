@@ -48,6 +48,12 @@ export interface TourApiPlaceItem {
   tel?: string;
   createdtime?: string;
   modifiedtime?: string;
+  zipcode?: string;
+  /** 저작권 유형 */
+  cpyrhtDivCd?: string;
+  /** 법정동 시도/시군구 코드 (KorService2) */
+  lDongRegnCd?: string;
+  lDongSignguCd?: string;
 }
 
 /**
