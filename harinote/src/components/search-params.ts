@@ -25,6 +25,12 @@ export function parseContentTypeId(
     : undefined;
 }
 
+/** 페이지 번호 파싱 — 1 이상의 정수만 허용, 잘못된 값은 1 */
+export function parsePage(v: SearchParamValue): number {
+  const n = Number(first(v));
+  return Number.isInteger(n) && n >= 1 ? n : 1;
+}
+
 /** 빈 값(undefined, "")을 제외하고 쿼리스트링 생성 ("?q=..&profile=.." 또는 "") */
 export function buildQuery(
   params: Record<string, string | number | undefined>,

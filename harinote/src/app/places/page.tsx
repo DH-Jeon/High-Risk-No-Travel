@@ -12,10 +12,13 @@ import {
   buildQuery,
   first,
   parseContentTypeId,
+  parsePage,
   parseProfile,
   profileParam,
   type SearchParamValue,
 } from "@/components/search-params";
+
+const PAGE_SIZE = 24;
 
 export const metadata: Metadata = {
   title: "관광지 검색",
@@ -43,6 +46,20 @@ export default async function PlacesPage({ searchParams }: Props) {
     { q: q || undefined, contentTypeId },
     profile,
   );
+
+  // 서버 사이드 페이지네이션 — 24건/페이지
+  const totalPages = Math.max(1, Math.ceil(places.length / PAGE_SIZE));
+  const page = Math.min(parsePage(sp.page), totalPages);
+  const start = (page - 1) * PAGE_SIZE;
+  const pagePlaces = places.slice(start, start + PAGE_SIZE);
+
+  const pageHref = (p: number) =>
+    `/places${buildQuery({
+      q: q || undefined,
+      type: contentTypeId,
+      profile: profileParam(profile),
+      page: p === 1 ? undefined : p,
+    })}`;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
@@ -95,6 +112,12 @@ export default async function PlacesPage({ searchParams }: Props) {
           "강원 관광지 "
         )}
         <strong className="text-teal-700">{places.length}곳</strong>
+        {places.length > PAGE_SIZE && (
+          <>
+            {" "}
+            중 {start + 1}–{start + pagePlaces.length}번째
+          </>
+        )}
       </p>
 
       {places.length === 0 ? (
@@ -121,11 +144,59 @@ export default async function PlacesPage({ searchParams }: Props) {
           </div>
         </div>
       ) : (
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-          {places.map((place) => (
-            <PlaceCard key={place.contentId} place={place} profile={profile} />
-          ))}
-        </div>
+        <>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+            {pagePlaces.map((place) => (
+              <PlaceCard
+                key={place.contentId}
+                place={place}
+                profile={profile}
+              />
+            ))}
+          </div>
+
+          {/* 페이지네이션 */}
+          {totalPages > 1 && (
+            <nav
+              aria-label="페이지 이동"
+              className="mt-8 flex items-center justify-center gap-4"
+            >
+              {page > 1 ? (
+                <Link
+                  href={pageHref(page - 1)}
+                  className="rounded-full bg-white px-4 py-1.5 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-slate-100"
+                >
+                  ← 이전
+                </Link>
+              ) : (
+                <span
+                  aria-disabled="true"
+                  className="rounded-full bg-slate-50 px-4 py-1.5 text-sm font-semibold text-slate-300 ring-1 ring-slate-100"
+                >
+                  ← 이전
+                </span>
+              )}
+              <span className="text-sm font-semibold tabular-nums text-slate-600">
+                {page} / {totalPages} 페이지
+              </span>
+              {page < totalPages ? (
+                <Link
+                  href={pageHref(page + 1)}
+                  className="rounded-full bg-white px-4 py-1.5 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-slate-100"
+                >
+                  다음 →
+                </Link>
+              ) : (
+                <span
+                  aria-disabled="true"
+                  className="rounded-full bg-slate-50 px-4 py-1.5 text-sm font-semibold text-slate-300 ring-1 ring-slate-100"
+                >
+                  다음 →
+                </span>
+              )}
+            </nav>
+          )}
+        </>
       )}
     </div>
   );
