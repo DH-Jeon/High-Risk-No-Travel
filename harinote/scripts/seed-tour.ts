@@ -1,9 +1,11 @@
 /**
  * 관광지 시드 스크립트 — 실행: pnpm seed [--from-fixture]
- * - --from-fixture : src/fixtures/tour/gangwon.ts 요약 출력 (환경변수 불필요)
- * - 기본(live)     : TourAPI fetchGangwonPlaces() 호출 후 요약 출력 (TOUR_API_KEY 필요)
- * Supabase upsert는 인프라 연결 후 활성화 예정 (아래 골격 참고, 현재 호출하지 않음).
+ * - 기본(live)     : TourAPI에서 강원 전체 수집 → src/data/gangwon.json 저장 (TOUR_API_KEY 필요)
+ * - --from-fixture : src/fixtures/tour/gangwon.ts 요약 출력만 (환경변수 불필요)
+ * Supabase upsert는 DB 도입 시점(ADR-004)에 활성화 (아래 골격 보존, 현재 호출하지 않음).
  */
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import type { Place } from "../src/lib/tour/types";
 import {
   CONTENT_TYPE_LABEL,
@@ -104,9 +106,14 @@ async function main(): Promise<void> {
   }
 
   printSummary(places, fromFixture ? "fixture" : "live");
-  console.log(
-    "[i] DB upsert는 Supabase 인프라 연결 후 활성화됩니다 (upsertPlacesToSupabase 골격 참고).",
-  );
+
+  if (!fromFixture) {
+    const outPath = path.join("src", "data", "gangwon.json");
+    await mkdir(path.dirname(outPath), { recursive: true });
+    await writeFile(outPath, JSON.stringify(places, null, 1) + "\n", "utf-8");
+    const sizeKb = Math.round(Buffer.byteLength(JSON.stringify(places)) / 1024);
+    console.log(`\n[v] ${outPath}에 ${places.length}건 저장 (약 ${sizeKb}KB) — DATA_SOURCE=json이 이 파일을 사용합니다.`);
+  }
 }
 
 main().catch((err) => {
