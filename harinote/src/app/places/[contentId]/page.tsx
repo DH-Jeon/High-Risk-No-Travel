@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getPlaceWithSafety } from "@/lib/datasource";
+import { getPlaceWithSafety, getPlacesWithSafety } from "@/lib/datasource";
 import { CONTENT_TYPE_LABEL, ENV_TYPE_LABEL } from "@/lib/tour/types";
 import { PROFILE_LABEL } from "@/lib/safety/types";
+import { recommendAlternatives } from "@/lib/reco/alternatives";
+import PlaceCard from "@/components/PlaceCard";
 import ProfileChips from "@/components/ProfileChips";
 import RiskBreakdownBar from "@/components/RiskBreakdownBar";
 import SafetyScoreBadge from "@/components/SafetyScoreBadge";
@@ -48,6 +50,10 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
   if (!place) notFound();
 
   const { safety } = place;
+
+  // 대체지 추천: 전체 후보(요청 스코프 캐시로 재로드 비용 없음)에서 30km 이내 더 안전한 곳
+  const candidates = await getPlacesWithSafety(undefined, profile);
+  const alternatives = recommendAlternatives(place, candidates);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
@@ -143,23 +149,50 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
         </section>
       )}
 
-      {/* 대체지 추천 자리 */}
+      {/* 안전한 대체지 추천 */}
       <section className="mt-8">
         <h2 className="text-lg font-bold text-slate-900">
           안전한 대체지 추천
         </h2>
-        <div className="mt-3 rounded-2xl border-2 border-dashed border-teal-200 bg-teal-50/50 px-6 py-10 text-center">
-          <p className="text-3xl" aria-hidden="true">
-            🧭
-          </p>
-          <p className="mt-3 font-bold text-slate-700">
-            주변 대체지 분석 준비 중이에요
-          </p>
-          <p className="mt-1 text-sm text-slate-500">
-            주의 요인이 높은 날, 같은 유형의 더 안전한 주변 관광지를 이 자리에서
-            추천해 드릴게요.
-          </p>
-        </div>
+        <p className="mt-1 text-sm text-slate-500">
+          같은 유형의 더 안전한 주변 관광지예요 (30km 이내)
+        </p>
+        {alternatives.length === 0 ? (
+          <div className="mt-3 rounded-2xl bg-teal-50/50 px-6 py-10 text-center ring-1 ring-teal-100">
+            <p className="text-3xl" aria-hidden="true">
+              🧭
+            </p>
+            <p className="mt-3 font-bold text-slate-700">
+              이 관광지는 주변 대비 이미 주의 요인이 낮은 편이에요
+            </p>
+            <p className="mt-1 text-sm text-slate-500">
+              30km 이내에서 안전 점수가 의미 있게 더 높은 관광지를 찾지
+              못했어요.
+            </p>
+            <Link
+              href={`/places${buildQuery({ profile: profileParam(profile) })}`}
+              className="mt-4 inline-block rounded-full bg-teal-50 px-4 py-1.5 text-sm font-semibold text-teal-700 ring-1 ring-teal-200 transition-colors hover:bg-teal-100"
+            >
+              다른 관광지 둘러보기
+            </Link>
+          </div>
+        ) : (
+          <div className="mt-3 grid gap-4 sm:grid-cols-2">
+            {alternatives.map((alt) => (
+              <PlaceCard
+                key={alt.contentId}
+                place={alt}
+                profile={profile}
+                footer={
+                  <p className="text-xs font-semibold text-teal-700">
+                    {alt.distanceKm.toFixed(1)}km · 안전점수 +
+                    {alt.safety.score - safety.score}점
+                  </p>
+                }
+              />
+            ))}
+          </div>
+        )}
       </section>
 
       <p className="mt-8 text-xs leading-relaxed text-slate-400">
