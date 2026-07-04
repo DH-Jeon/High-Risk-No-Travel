@@ -1,0 +1,216 @@
+import { describe, expect, it } from "vitest";
+import type { RiskInput } from "@/lib/safety/types";
+import type { PlaceEnvType } from "@/lib/tour/types";
+import { buildChecklist } from "@/lib/report/checklist";
+
+/** 어떤 규칙도 발동하지 않는 기준 입력 */
+function calmInput(overrides: Partial<RiskInput> = {}): RiskInput {
+  return {
+    tempC: 22,
+    rainProbPct: 10,
+    windMs: 2,
+    pm25: 10,
+    forestFireLevel: 1,
+    emergencyRoomKm: 3,
+    ...overrides,
+  };
+}
+
+function envPlace(envType: PlaceEnvType = "outdoor_general") {
+  return { envType };
+}
+
+describe("buildChecklist — 항상 포함 항목", () => {
+  it("규칙이 하나도 발동하지 않으면 상시 항목 2개만 반환한다", () => {
+    const items = buildChecklist(calmInput(), envPlace(), "default");
+    expect(items).toEqual([
+      "출발 전 기상특보 확인하기(기상청)",
+      "여행 일정 가족·지인과 공유하기",
+    ]);
+  });
+});
+
+describe("buildChecklist — 폭염", () => {
+  it("33℃ 미만(32.9℃)은 폭염 항목이 없다", () => {
+    const items = buildChecklist(calmInput({ tempC: 32.9 }), envPlace(), "default");
+    expect(items.join()).not.toContain("생수");
+  });
+
+  it("경계값 33℃부터 생수·모자·자외선 차단제 항목이 생긴다", () => {
+    const items = buildChecklist(calmInput({ tempC: 33 }), envPlace(), "default");
+    expect(items).toContain("생수·모자·자외선 차단제 챙기기");
+  });
+
+  it("아이 동반이면 아이 컨디션 확인 항목이 추가된다", () => {
+    const items = buildChecklist(calmInput({ tempC: 34 }), envPlace(), "with_kids");
+    expect(items).toContain("아이 컨디션(더위 먹음 신호) 자주 확인하기");
+  });
+
+  it("기본 프로필이면 아이 컨디션 항목이 없다", () => {
+    const items = buildChecklist(calmInput({ tempC: 34 }), envPlace(), "default");
+    expect(items.join()).not.toContain("아이 컨디션");
+  });
+});
+
+describe("buildChecklist — 강수", () => {
+  it("강수확률 59%는 우산 항목이 없다", () => {
+    const items = buildChecklist(calmInput({ rainProbPct: 59 }), envPlace(), "default");
+    expect(items.join()).not.toContain("우산");
+  });
+
+  it("경계값 60%부터 우산·우비 항목이 생긴다", () => {
+    const items = buildChecklist(calmInput({ rainProbPct: 60 }), envPlace(), "default");
+    expect(items).toContain("우산·우비 준비하기");
+  });
+
+  it("강수 60%+ 계곡·수변이면 수위 대피 항목이 추가된다", () => {
+    const items = buildChecklist(
+      calmInput({ rainProbPct: 70 }),
+      envPlace("outdoor_water"),
+      "default",
+    );
+    expect(items).toContain("계곡 수위 변화 주의 — 상류 호우 시 즉시 대피");
+  });
+
+  it("강수 60%+라도 일반 야외면 수위 항목이 없다", () => {
+    const items = buildChecklist(calmInput({ rainProbPct: 70 }), envPlace(), "default");
+    expect(items.join()).not.toContain("수위");
+  });
+
+  it("계곡·수변이라도 강수확률이 낮으면 수위 항목이 없다", () => {
+    const items = buildChecklist(
+      calmInput({ rainProbPct: 30 }),
+      envPlace("outdoor_water"),
+      "default",
+    );
+    expect(items.join()).not.toContain("수위");
+  });
+});
+
+describe("buildChecklist — 강풍", () => {
+  it("풍속 9m/s + 산악이면 바람막이 항목이 생긴다", () => {
+    const items = buildChecklist(
+      calmInput({ windMs: 9 }),
+      envPlace("outdoor_mountain"),
+      "default",
+    );
+    expect(items).toContain("바람막이 준비, 전망대·능선 구간 주의하기");
+  });
+
+  it("풍속 9m/s + 해안도 바람막이 항목이 생긴다", () => {
+    const items = buildChecklist(
+      calmInput({ windMs: 12 }),
+      envPlace("outdoor_coast"),
+      "default",
+    );
+    expect(items.join()).toContain("바람막이");
+  });
+
+  it("풍속 8.9m/s는 산악이어도 바람막이 항목이 없다", () => {
+    const items = buildChecklist(
+      calmInput({ windMs: 8.9 }),
+      envPlace("outdoor_mountain"),
+      "default",
+    );
+    expect(items.join()).not.toContain("바람막이");
+  });
+
+  it("풍속 9m/s+라도 일반 야외·실내면 바람막이 항목이 없다", () => {
+    for (const env of ["outdoor_general", "indoor"] as const) {
+      const items = buildChecklist(calmInput({ windMs: 15 }), envPlace(env), "default");
+      expect(items.join()).not.toContain("바람막이");
+    }
+  });
+});
+
+describe("buildChecklist — 미세먼지", () => {
+  it("PM2.5 35(보통 상한)는 마스크 항목이 없다", () => {
+    const items = buildChecklist(calmInput({ pm25: 35 }), envPlace(), "default");
+    expect(items.join()).not.toContain("마스크");
+  });
+
+  it("경계값 36(나쁨)부터 KF80 마스크 항목이 생긴다", () => {
+    const items = buildChecklist(calmInput({ pm25: 36 }), envPlace(), "default");
+    expect(items).toContain("보건용 마스크(KF80 이상) 챙기기");
+  });
+
+  it("아이 동반이면 야외 활동 가중 문구가 추가된다", () => {
+    const items = buildChecklist(calmInput({ pm25: 50 }), envPlace(), "with_kids");
+    expect(items).toContain("아이 야외 활동 시간 줄이고 마스크 착용 챙기기");
+  });
+});
+
+describe("buildChecklist — 응급의료", () => {
+  it("19.9km는 상비약 항목이 없다", () => {
+    const items = buildChecklist(
+      calmInput({ emergencyRoomKm: 19.9 }),
+      envPlace(),
+      "default",
+    );
+    expect(items.join()).not.toContain("상비약");
+  });
+
+  it("경계값 20km부터 상비약·병원 위치 항목이 생긴다", () => {
+    const items = buildChecklist(
+      calmInput({ emergencyRoomKm: 20 }),
+      envPlace(),
+      "default",
+    );
+    expect(items).toContain("상비약 지참, 이동 경로의 병원 위치 확인하기");
+  });
+
+  it("부모님 동반이면 복용약 항목이 추가된다", () => {
+    const items = buildChecklist(
+      calmInput({ emergencyRoomKm: 25 }),
+      envPlace(),
+      "with_seniors",
+    );
+    expect(items).toContain("부모님 평소 복용약 챙기기");
+  });
+
+  it("기본 프로필이면 복용약 항목이 없다", () => {
+    const items = buildChecklist(
+      calmInput({ emergencyRoomKm: 25 }),
+      envPlace(),
+      "default",
+    );
+    expect(items.join()).not.toContain("복용약");
+  });
+});
+
+describe("buildChecklist — 산불위험", () => {
+  it("2단계는 화기 금지 항목이 없다", () => {
+    const items = buildChecklist(
+      calmInput({ forestFireLevel: 2 }),
+      envPlace("outdoor_mountain"),
+      "default",
+    );
+    expect(items.join()).not.toContain("화기");
+  });
+
+  it("3단계부터 화기 금지·통제 구간 항목이 생긴다", () => {
+    const items = buildChecklist(
+      calmInput({ forestFireLevel: 3 }),
+      envPlace("outdoor_mountain"),
+      "default",
+    );
+    expect(items).toContain("산림 인접지 화기 사용 금지, 입산 통제 구간 확인하기");
+  });
+});
+
+describe("buildChecklist — 중복 없음", () => {
+  it("모든 규칙이 동시에 발동해도 항목이 중복되지 않는다", () => {
+    const extreme = calmInput({
+      tempC: 36,
+      rainProbPct: 90,
+      windMs: 15,
+      pm25: 80,
+      forestFireLevel: 4,
+      emergencyRoomKm: 35,
+    });
+    for (const profile of ["default", "with_kids", "with_seniors", "own_car"] as const) {
+      const items = buildChecklist(extreme, envPlace("outdoor_water"), profile);
+      expect(new Set(items).size).toBe(items.length);
+    }
+  });
+});

@@ -49,6 +49,26 @@ export function nearestHospitalKm(lat: number, lng: number, contentId?: number):
   return min;
 }
 
+/**
+ * 최근접 응급의료기관 이름+거리(km) — 출발 전 체크 리포트용.
+ * 병원 데이터가 비어 있으면 null (호출부는 섹션 문구로 폴백).
+ */
+export function nearestHospital(
+  lat: number,
+  lng: number,
+): { name: string; km: number } | null {
+  let best: Hospital | null = null;
+  let min = Infinity;
+  for (const h of HOSPITALS) {
+    const d = haversineKm(lat, lng, h.lat, h.lng);
+    if (d < min) {
+      min = d;
+      best = h;
+    }
+  }
+  return best ? { name: best.name, km: min } : null;
+}
+
 /** 출처 표기 — UI 각주용 */
 export function medicalDataSource(): string {
   return "국립중앙의료원 헬스맵 공공보건의료 통계 데이터셋(2023-12-31 기준, 공공데이터포털)";

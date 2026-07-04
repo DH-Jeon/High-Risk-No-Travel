@@ -93,6 +93,12 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
       {/* 안전 점수 */}
       <section className="mt-6">
         <SafetyScoreBadge score={safety.score} grade={safety.grade} size="lg" />
+        <Link
+          href={`/places/${place.contentId}/report${buildQuery({ profile: profileParam(profile) })}`}
+          className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-4 py-1.5 text-sm font-semibold text-teal-700 ring-1 ring-teal-200 transition-colors hover:bg-teal-100"
+        >
+          <span aria-hidden="true">📋</span> 출발 전 체크 리포트
+        </Link>
         <div className="mt-4">
           <p className="mb-2 text-sm font-semibold text-slate-600">
             동행에 따라 점수가 달라져요 —{" "}
