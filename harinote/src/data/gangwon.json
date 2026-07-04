@@ -2877,34 +2877,6 @@
   "envType": "outdoor_general"
  },
  {
-  "contentId": 125683,
-  "contentTypeId": 12,
-  "title": "마차진해변",
-  "addr": "강원특별자치도 고성군 현내면 금강산로 416",
-  "sigunguCode": 2,
-  "cat1": "A01",
-  "cat2": "A0101",
-  "cat3": "A01011200",
-  "lng": 117.9925662504,
-  "lat": 19.69442748,
-  "imageUrl": "http://tong.visitkorea.or.kr/cms/resource/68/3006868_image2_1.jpg",
-  "envType": "outdoor_coast"
- },
- {
-  "contentId": 2465460,
-  "contentTypeId": 12,
-  "title": "마평정수장 홍보관",
-  "addr": "강원특별자치도 삼척시 회강길 450 (마평동)",
-  "sigunguCode": 4,
-  "cat1": "A02",
-  "cat2": "A0204",
-  "cat3": "A02040800",
-  "lng": 117.9925662504,
-  "lat": 19.69442748,
-  "imageUrl": "http://tong.visitkorea.or.kr/cms/resource/34/3071234_image2_1.jpg",
-  "envType": "outdoor_general"
- },
- {
   "contentId": 127141,
   "contentTypeId": 12,
   "title": "막동계곡",
@@ -2917,20 +2889,6 @@
   "lat": 37.5372815062,
   "imageUrl": "http://tong.visitkorea.or.kr/cms/resource/69/2921769_image2_1.jpg",
   "envType": "outdoor_water"
- },
- {
-  "contentId": 125793,
-  "contentTypeId": 12,
-  "title": "만경대",
-  "addr": "강원특별자치도 동해시 공단12로 77 (구호동)",
-  "sigunguCode": 3,
-  "cat1": "A02",
-  "cat2": "A0201",
-  "cat3": "A02010700",
-  "lng": 117.9925662504,
-  "lat": 19.69442748,
-  "imageUrl": "http://tong.visitkorea.or.kr/cms/resource/12/3070412_image2_1.jpg",
-  "envType": "outdoor_general"
  },
  {
   "contentId": 2681536,
@@ -7363,20 +7321,6 @@
   "lng": 127.820478792,
   "lat": 37.3439176108,
   "imageUrl": "http://tong.visitkorea.or.kr/cms/resource/20/3375720_image2_1.JPG",
-  "envType": "outdoor_general"
- },
- {
-  "contentId": 2465230,
-  "contentTypeId": 12,
-  "title": "의암수력발전소",
-  "addr": "강원특별자치도 춘천시 신동면 옛경춘로 62-11",
-  "sigunguCode": 13,
-  "cat1": "A02",
-  "cat2": "A0204",
-  "cat3": "A02040800",
-  "lng": 117.9925662504,
-  "lat": 19.69442748,
-  "imageUrl": "http://tong.visitkorea.or.kr/cms/resource/00/3475400_image2_1.jpg",
   "envType": "outdoor_general"
  },
  {
@@ -26513,20 +26457,6 @@
   "cat3": "A05020200",
   "lng": 128.9144333122,
   "lat": 37.7924532029,
-  "envType": "indoor"
- },
- {
-  "contentId": 2922598,
-  "contentTypeId": 39,
-  "title": "파미르",
-  "addr": "강원특별자치도 춘천시 순환대로 1154-144",
-  "sigunguCode": 13,
-  "cat1": "A05",
-  "cat2": "A0502",
-  "cat3": "A05020900",
-  "lng": 127.7792968779,
-  "lat": 37.8952084759,
-  "imageUrl": "http://tong.visitkorea.or.kr/cms/resource/86/2922586_image2_1.JPG",
   "envType": "indoor"
  },
  {

@@ -11,7 +11,9 @@
     "test:watch": "vitest",
     "seed": "tsx scripts/seed-tour.ts",
     "check:tourapi": "tsx scripts/check-tourapi.ts",
-    "check:risk": "tsx scripts/check-risk-apis.ts"
+    "check:risk": "tsx scripts/check-risk-apis.ts",
+    "check:forest": "tsx scripts/check-forest-api.ts",
+    "build:hospitals": "tsx scripts/build-hospitals.ts"
   },
   "dependencies": {
     "leaflet": "^1.9.4",

@@ -140,8 +140,9 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
           {hasLiveRiskKeys() && (
             <>
               {" "}
-              기상·미세먼지는 기상청·에어코리아 연동값이고, 산불위험·응급의료·
-              대피소는 실연동 준비 중인 시범값이에요.
+              기상·미세먼지는 기상청·에어코리아 연동값, 응급의료 거리는 실제
+              의료기관 좌표 기반이고, 산불위험·대피소는 실연동 준비 중인
+              시범값이에요.
             </>
           )}
         </p>

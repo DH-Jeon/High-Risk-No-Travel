@@ -149,6 +149,8 @@ export function toPlace(item: TourApiPlaceItem): Place | null {
   if (!item.mapx || !item.mapy) return null;
   if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null;
   if (lng === 0 || lat === 0) return null;
+  // TourAPI 플레이스홀더 좌표(남중국해 등) 방어 — 한반도 영역 밖은 제외
+  if (lat < 33 || lat > 39.5 || lng < 124 || lng > 132) return null;
 
   const sigunguCode = item.sigungucode ? Number(item.sigungucode) : NaN;
   const addr = [item.addr1, item.addr2]
