@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Logo from "@/components/Logo";
+import NavTabs from "@/components/NavTabs";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -21,10 +22,10 @@ export default function RootLayout({
     <html lang="ko" className="h-full antialiased">
       <body className="flex min-h-full flex-col">
         <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
-          <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
+          <div className="mx-auto flex h-14 max-w-5xl items-stretch justify-between px-4">
             <Link
               href="/"
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 self-center"
               aria-label="하리노트 홈으로"
             >
               <Logo className="h-7 w-7" />
@@ -35,26 +36,7 @@ export default function RootLayout({
                 HARI-NOTE · High Risk, No Travel
               </span>
             </Link>
-            <nav aria-label="주요 메뉴" className="flex items-center gap-1">
-              <Link
-                href="/map"
-                className="rounded-full px-3 py-1.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-teal-50 hover:text-teal-700"
-              >
-                안전 지도
-              </Link>
-              <Link
-                href="/places"
-                className="rounded-full px-3 py-1.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-teal-50 hover:text-teal-700"
-              >
-                검색
-              </Link>
-              <Link
-                href="/courses"
-                className="rounded-full px-3 py-1.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-teal-50 hover:text-teal-700"
-              >
-                코스 추천
-              </Link>
-            </nav>
+            <NavTabs />
           </div>
         </header>
 
