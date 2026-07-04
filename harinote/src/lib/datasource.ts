@@ -28,6 +28,8 @@ export interface PlaceQuery {
   q?: string;
   /** 12 관광지, 14 문화시설, 39 음식점 ... */
   contentTypeId?: number;
+  /** TourAPI 강원 시군구 코드 (1~18, regions.ts SIGUNGU_SEATS 키) */
+  sigunguCode?: number;
 }
 
 export interface PlaceWithSafety extends Place {
@@ -64,6 +66,9 @@ const loadPlaces = cache(async (): Promise<Place[]> => {
 function matches(place: Place, query?: PlaceQuery): boolean {
   if (!query) return true;
   if (query.contentTypeId && place.contentTypeId !== query.contentTypeId) {
+    return false;
+  }
+  if (query.sigunguCode && place.sigunguCode !== query.sigunguCode) {
     return false;
   }
   if (query.q) {

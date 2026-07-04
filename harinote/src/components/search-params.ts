@@ -1,5 +1,6 @@
 /** URL 쿼리 파라미터 파싱 유틸 — UI 전용 */
 import { PROFILE_LABEL, type Profile } from "@/lib/safety/types";
+import { SIGUNGU_SEATS } from "@/lib/risk/regions";
 import {
   SUPPORTED_CONTENT_TYPE_IDS,
   type ContentTypeId,
@@ -23,6 +24,12 @@ export function parseContentTypeId(
   return (SUPPORTED_CONTENT_TYPE_IDS as readonly number[]).includes(n)
     ? (n as ContentTypeId)
     : undefined;
+}
+
+/** 강원 시군구 코드 파싱 — SIGUNGU_SEATS에 있는 코드(1~18)만 허용 */
+export function parseSigungu(v: SearchParamValue): number | undefined {
+  const n = Number(first(v));
+  return n in SIGUNGU_SEATS ? n : undefined;
 }
 
 /** 페이지 번호 파싱 — 1 이상의 정수만 허용, 잘못된 값은 1 */
