@@ -105,7 +105,7 @@ describe("recommendAlternatives — 카테고리 유사도 정렬", () => {
     ]);
   });
 
-  it("contentTypeId 일치가 완전 불일치보다 우선", () => {
+  it("유형 관련성 0점(카테고리·유형 완전 불일치) 후보는 제외된다", () => {
     const noMatch = makePlace({
       contentTypeId: 39,
       cat1: "A05",
@@ -119,10 +119,8 @@ describe("recommendAlternatives — 카테고리 유사도 정렬", () => {
       safety: makeSafety(80),
     });
     const result = recommendAlternatives(target, [noMatch, typeMatch]);
-    expect(result.map((r) => r.contentId)).toEqual([
-      typeMatch.contentId,
-      noMatch.contentId,
-    ]);
+    // UI가 "같은 유형의 대체지"를 약속하므로 무관 유형은 안전점수가 높아도 제외
+    expect(result.map((r) => r.contentId)).toEqual([typeMatch.contentId]);
   });
 });
 

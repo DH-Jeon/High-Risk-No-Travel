@@ -49,8 +49,17 @@ const loadPlaces = cache(async (): Promise<Place[]> => {
   }
   if (source === "mock") return gangwonPlaces;
   // json (기본): pnpm seed가 생성한 TourAPI 수집 실데이터
-  const data = await import("@/data/gangwon.json");
-  return data.default as Place[];
+  try {
+    const data = await import("@/data/gangwon.json");
+    return data.default as Place[];
+  } catch (err) {
+    // 파일 손상/부재 시에도 화면이 죽지 않도록 mock으로 폴백
+    console.warn(
+      "[datasource] gangwon.json 로드 실패 — mock fixture(35건)로 폴백합니다:",
+      err instanceof Error ? err.message : err,
+    );
+    return gangwonPlaces;
+  }
 });
 
 function matches(place: Place, query?: PlaceQuery): boolean {
@@ -85,17 +94,24 @@ export async function getRiskInput(place: Place): Promise<RiskInput> {
   return mockRiskInputFor(place);
 }
 
-export async function getPlacesWithSafety(
-  query?: PlaceQuery,
+/** 관광지 배열에 안전점수를 계산해 붙인다 — 화면에 실제로 노출될 항목에만 호출할 것 */
+export async function attachSafety(
+  places: Place[],
   profile: Profile = "default",
 ): Promise<PlaceWithSafety[]> {
-  const places = await getPlaces(query);
   return Promise.all(
     places.map(async (place) => ({
       ...place,
       safety: computeSafetyScore(await getRiskInput(place), place, profile),
     })),
   );
+}
+
+export async function getPlacesWithSafety(
+  query?: PlaceQuery,
+  profile: Profile = "default",
+): Promise<PlaceWithSafety[]> {
+  return attachSafety(await getPlaces(query), profile);
 }
 
 export async function getPlaceWithSafety(

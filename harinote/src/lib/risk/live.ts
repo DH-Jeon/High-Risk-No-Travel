@@ -43,12 +43,20 @@ export async function getLiveRiskInput(
 
   if (weather.status === "fulfilled") {
     const w = weather.value;
-    if (w.tempC !== undefined) input.tempC = w.tempC;
-    if (w.rainProbPct !== undefined) input.rainProbPct = w.rainProbPct;
-    if (w.windMs !== undefined) input.windMs = w.windMs;
-    // 실예보가 "강수없음"이면 mock의 rainMm도 제거 — 날씨 필드는 통째로 실데이터화
-    if (w.rainMm !== undefined) input.rainMm = w.rainMm;
-    else delete input.rainMm;
+    // 핵심값이 하나도 없는 빈 응답(발표 직후 등)은 실데이터로 취급하지 않고 mock 전체 유지
+    // — 일부만 덮어쓰면 mock 기온 + 실측 강수 같은 혼종 상태가 된다
+    const hasCore =
+      w.tempC !== undefined ||
+      w.rainProbPct !== undefined ||
+      w.windMs !== undefined;
+    if (hasCore) {
+      if (w.tempC !== undefined) input.tempC = w.tempC;
+      if (w.rainProbPct !== undefined) input.rainProbPct = w.rainProbPct;
+      if (w.windMs !== undefined) input.windMs = w.windMs;
+      // 실예보가 "강수없음"이면 mock의 rainMm도 제거 — 날씨 필드는 통째로 실데이터화
+      if (w.rainMm !== undefined) input.rainMm = w.rainMm;
+      else delete input.rainMm;
+    }
   }
 
   if (pm25.status === "fulfilled") {
