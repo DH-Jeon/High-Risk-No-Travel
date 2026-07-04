@@ -35,12 +35,26 @@ export default function RootLayout({
                 HARI-NOTE · High Risk, No Travel
               </span>
             </Link>
-            <Link
-              href="/places"
-              className="rounded-full bg-teal-50 px-4 py-1.5 text-sm font-semibold text-teal-700 transition-colors hover:bg-teal-100"
-            >
-              관광지 찾기
-            </Link>
+            <nav aria-label="주요 메뉴" className="flex items-center gap-1">
+              <Link
+                href="/map"
+                className="rounded-full px-3 py-1.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-teal-50 hover:text-teal-700"
+              >
+                안전 지도
+              </Link>
+              <Link
+                href="/places"
+                className="rounded-full px-3 py-1.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-teal-50 hover:text-teal-700"
+              >
+                검색
+              </Link>
+              <Link
+                href="/courses"
+                className="rounded-full px-3 py-1.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-teal-50 hover:text-teal-700"
+              >
+                코스 추천
+              </Link>
+            </nav>
           </div>
         </header>
 
