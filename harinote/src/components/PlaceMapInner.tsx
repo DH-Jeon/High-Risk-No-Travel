@@ -25,11 +25,19 @@ export default function PlaceMapInner({
   profileQuery,
 }: PlaceMapProps) {
   const points = [target, ...alternatives];
-  const bounds = latLngBounds(points.map((p) => [p.lat, p.lng]));
+  // 점이 1개면 bounds가 크기 0으로 축퇴해 최대 줌이 되므로 center+zoom을 사용
+  const view =
+    points.length > 1
+      ? {
+          bounds: latLngBounds(
+            points.map((p) => [p.lat, p.lng] as [number, number]),
+          ).pad(0.2),
+        }
+      : { center: [target.lat, target.lng] as [number, number], zoom: 12 };
 
   return (
     <MapContainer
-      bounds={bounds.pad(0.2)}
+      {...view}
       scrollWheelZoom={false}
       className="z-0 h-72 w-full rounded-2xl ring-1 ring-slate-200"
     >

@@ -256,3 +256,20 @@ export function levelForPoints(points: number, maxPoints: number): RiskLevel {
   if (ratio < 2 / 3) return "moderate";
   return "high";
 }
+
+// ─────────────────────────────────────────────
+// 대체지 추천(reco) 임계값 — 안전점수에 거는 기준이므로 이 파일에서 관리
+// ─────────────────────────────────────────────
+/**
+ * 의미 있는 개선으로 인정하는 최소 점수 차.
+ * 근거: 반올림 오차(±1점)와 뚜렷이 구분되고, 등급 컷 간격(30점)의 1/6 수준 —
+ * "체감되는 개선"의 설계값 (공공 기준 아님, 사용자 피드백으로 보정 예정).
+ */
+export const RECO_MIN_SCORE_GAIN = 5;
+
+/**
+ * '악천후'로 판단해 실내 후보를 우대하는 기상 감점 기준.
+ * 근거: 기상 감점 상한 60점(폭염25+강수강풍20+미세먼지15)의 1/4 —
+ * 특보 1개 초과분에 상당하는 설계값.
+ */
+export const RECO_WEATHER_RISK_INDOOR_THRESHOLD = 15;
