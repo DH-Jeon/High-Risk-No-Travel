@@ -6,6 +6,7 @@ import { CONTENT_TYPE_LABEL, ENV_TYPE_LABEL } from "@/lib/tour/types";
 import { PROFILE_LABEL } from "@/lib/safety/types";
 import { recommendAlternatives } from "@/lib/reco/alternatives";
 import PlaceCard from "@/components/PlaceCard";
+import PlaceMap from "@/components/PlaceMap";
 import ProfileChips from "@/components/ProfileChips";
 import RiskBreakdownBar from "@/components/RiskBreakdownBar";
 import SafetyScoreBadge from "@/components/SafetyScoreBadge";
@@ -148,6 +149,39 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
           </p>
         </section>
       )}
+
+      {/* 위치 지도 */}
+      <section className="mt-8">
+        <h2 className="text-lg font-bold text-slate-900">위치 보기</h2>
+        <p className="mb-3 mt-1 text-sm text-slate-500">
+          <span className="font-semibold text-teal-800">●</span> 현재 관광지
+          {alternatives.length > 0 && (
+            <>
+              {" · "}
+              <span className="font-semibold text-emerald-500">●</span> 더
+              안전한 대체지
+            </>
+          )}
+        </p>
+        <PlaceMap
+          target={{
+            contentId: place.contentId,
+            title: place.title,
+            lat: place.lat,
+            lng: place.lng,
+            score: safety.score,
+          }}
+          alternatives={alternatives.map((alt) => ({
+            contentId: alt.contentId,
+            title: alt.title,
+            lat: alt.lat,
+            lng: alt.lng,
+            score: alt.safety.score,
+            distanceKm: alt.distanceKm,
+          }))}
+          profileQuery={buildQuery({ profile: profileParam(profile) })}
+        />
+      </section>
 
       {/* 안전한 대체지 추천 */}
       <section className="mt-8">
