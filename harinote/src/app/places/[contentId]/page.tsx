@@ -6,6 +6,8 @@ import { hasLiveRiskKeys } from "@/lib/risk/live";
 import { CONTENT_TYPE_LABEL, ENV_TYPE_LABEL } from "@/lib/tour/types";
 import { PROFILE_LABEL } from "@/lib/safety/types";
 import { recommendAlternatives } from "@/lib/reco/alternatives";
+import { buildHalfDayCourse } from "@/lib/course/half-day";
+import CourseTimeline from "@/components/CourseTimeline";
 import PlaceCard from "@/components/PlaceCard";
 import PlaceMap from "@/components/PlaceMap";
 import ProfileChips from "@/components/ProfileChips";
@@ -56,6 +58,9 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
   // 대체지 추천: 전체 후보(요청 스코프 캐시로 재로드 비용 없음)에서 30km 이내 더 안전한 곳
   const candidates = await getPlacesWithSafety(undefined, profile);
   const alternatives = recommendAlternatives(place, candidates);
+
+  // 안전 반나절 코스: 앵커(target 또는 대체지 1순위) + 음식점 + 관광지·문화시설
+  const course = buildHalfDayCourse(place, alternatives, candidates);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
@@ -237,6 +242,21 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
           </div>
         )}
       </section>
+
+      {/* 추천 반나절 코스 */}
+      {course && (
+        <section className="mt-8">
+          <h2 className="text-lg font-bold text-slate-900">
+            추천 반나절 코스
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            {course.anchoredOnAlternative
+              ? `오늘은 ${place.title} 대신 더 안전한 코스를 추천해요`
+              : `${place.title}에서 시작하는 안전 코스예요`}
+          </p>
+          <CourseTimeline course={course} profile={profile} />
+        </section>
+      )}
 
       <p className="mt-8 text-xs leading-relaxed text-slate-400">
         본 점수는 공공데이터 기반 참고 정보이며 안전을 보장하지 않습니다. 방문
