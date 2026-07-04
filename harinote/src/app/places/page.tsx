@@ -6,6 +6,7 @@ import {
   SUPPORTED_CONTENT_TYPE_IDS,
 } from "@/lib/tour/types";
 import PlaceCard from "@/components/PlaceCard";
+import PopularSidebar from "@/components/PopularSidebar";
 import ProfileChips from "@/components/ProfileChips";
 import SearchBox from "@/components/SearchBox";
 import {
@@ -14,9 +15,11 @@ import {
   parseContentTypeId,
   parsePage,
   parseProfile,
+  parseSigungu,
   profileParam,
   type SearchParamValue,
 } from "@/components/search-params";
+import { SIGUNGU_SEATS } from "@/lib/risk/regions";
 
 const PAGE_SIZE = 24;
 
@@ -41,8 +44,14 @@ export default async function PlacesPage({ searchParams }: Props) {
   const q = first(sp.q)?.trim() ?? "";
   const contentTypeId = parseContentTypeId(sp.type);
   const profile = parseProfile(sp.profile);
+  const sigunguCode = parseSigungu(sp.sigungu);
+  const sigunguName = sigunguCode ? SIGUNGU_SEATS[sigunguCode].name : undefined;
 
-  const places = await getPlaces({ q: q || undefined, contentTypeId });
+  const places = await getPlaces({
+    q: q || undefined,
+    contentTypeId,
+    sigunguCode,
+  });
 
   // 서버 사이드 페이지네이션 — 24건/페이지.
   // 점수는 필터·정렬에 쓰이지 않으므로 화면에 나오는 24건에만 계산한다.
@@ -58,15 +67,17 @@ export default async function PlacesPage({ searchParams }: Props) {
     `/places${buildQuery({
       q: q || undefined,
       type: contentTypeId,
+      sigungu: sigunguCode,
       profile: profileParam(profile),
       page: p === 1 ? undefined : p,
     })}`;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
-      <div className="max-w-2xl">
-        <SearchBox defaultQuery={q} profile={profile} compact />
-      </div>
+    <div className="mx-auto max-w-6xl px-4 py-8 lg:grid lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start lg:gap-8">
+      <div>
+        <div className="max-w-2xl">
+          <SearchBox defaultQuery={q} profile={profile} compact />
+        </div>
 
       <div className="mt-5 space-y-3">
         {/* 유형 필터 탭 */}
@@ -76,6 +87,7 @@ export default async function PlacesPage({ searchParams }: Props) {
             const href = `/places${buildQuery({
               q: q || undefined,
               type: tab.value,
+              sigungu: sigunguCode,
               profile: profileParam(profile),
             })}`;
             return (
@@ -99,25 +111,48 @@ export default async function PlacesPage({ searchParams }: Props) {
         <ProfileChips
           basePath="/places"
           current={profile}
-          extraParams={{ q: q || undefined, type: contentTypeId }}
+          extraParams={{
+            q: q || undefined,
+            type: contentTypeId,
+            sigungu: sigunguCode,
+          }}
         />
       </div>
 
-      <p className="mt-6 text-sm text-slate-500">
-        {q ? (
-          <>
-            <strong className="text-slate-800">&ldquo;{q}&rdquo;</strong> 검색
-            결과{" "}
-          </>
-        ) : (
-          "강원 관광지 "
-        )}
-        <strong className="text-teal-700">{places.length}곳</strong>
-        {places.length > PAGE_SIZE && (
-          <>
-            {" "}
-            중 {start + 1}–{start + pagePlaces.length}번째
-          </>
+      <p className="mt-6 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+        <span>
+          {sigunguName && (
+            <strong className="text-slate-800">{sigunguName} </strong>
+          )}
+          {q ? (
+            <>
+              <strong className="text-slate-800">&ldquo;{q}&rdquo;</strong>{" "}
+              검색 결과{" "}
+            </>
+          ) : sigunguName ? (
+            "관광지 "
+          ) : (
+            "강원 관광지 "
+          )}
+          <strong className="text-teal-700">{places.length}곳</strong>
+          {places.length > PAGE_SIZE && (
+            <>
+              {" "}
+              중 {start + 1}–{start + pagePlaces.length}번째
+            </>
+          )}
+        </span>
+        {sigunguName && (
+          <Link
+            href={`/places${buildQuery({
+              q: q || undefined,
+              type: contentTypeId,
+              profile: profileParam(profile),
+            })}`}
+            className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-200"
+          >
+            {sigunguName} 필터 해제 ✕
+          </Link>
         )}
       </p>
 
@@ -133,7 +168,7 @@ export default async function PlacesPage({ searchParams }: Props) {
             다른 검색어로 시도하거나, 아래 인기 관광지를 둘러보세요.
           </p>
           <div className="mt-5 flex flex-wrap justify-center gap-2">
-            {["남이섬", "설악산", "경포해변"].map((name) => (
+            {["남이섬", "설악산", "경포"].map((name) => (
               <Link
                 key={name}
                 href={`/places${buildQuery({ q: name, profile: profileParam(profile) })}`}
@@ -199,6 +234,12 @@ export default async function PlacesPage({ searchParams }: Props) {
           )}
         </>
       )}
+      </div>
+
+      {/* 인기 관광지 사이드바 — lg 미만에서는 결과 아래 스택 */}
+      <div className="mt-10 lg:mt-0">
+        <PopularSidebar profile={profile} />
+      </div>
     </div>
   );
 }
