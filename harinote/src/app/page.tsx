@@ -1,7 +1,29 @@
 import Link from "next/link";
 import SearchBox from "@/components/SearchBox";
 
-const POPULAR = ["남이섬", "설악산", "경포해변", "정동진", "춘천", "속초"];
+// 검색어별 결과가 실제로 존재하는지 확인된 목록 (gangwon.json 기준 — "경포해변"은 0건이라 "경포"로)
+const POPULAR = ["남이섬", "설악산", "경포", "정동진", "춘천", "속초"];
+
+const ENTRIES = [
+  {
+    icon: "🗺️",
+    title: "오늘의 안전 지도",
+    desc: "강원 18개 시군의 방문 주의 요인을 지도에서 한눈에",
+    href: "/map",
+  },
+  {
+    icon: "🔍",
+    title: "관광지 검색",
+    desc: "이름·지역으로 찾고 인기 관광지도 함께",
+    href: "/places",
+  },
+  {
+    icon: "🧭",
+    title: "안전 코스 추천",
+    desc: "시군을 고르면 테마별 당일 코스 3선 자동 생성",
+    href: "/courses",
+  },
+];
 
 const STEPS = [
   {
@@ -59,6 +81,27 @@ export default function Home() {
                 </Link>
               ))}
             </div>
+          </div>
+
+          {/* 탐색 방식 3종 진입 카드 */}
+          <div className="mt-8 grid gap-3 sm:grid-cols-3">
+            {ENTRIES.map((e) => (
+              <Link
+                key={e.href}
+                href={e.href}
+                className="group rounded-2xl bg-white/80 p-4 ring-1 ring-slate-200 transition-all hover:bg-white hover:shadow-md hover:ring-teal-300"
+              >
+                <span className="text-2xl" aria-hidden="true">
+                  {e.icon}
+                </span>
+                <p className="mt-2 text-sm font-bold text-slate-900 group-hover:text-teal-700">
+                  {e.title} →
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                  {e.desc}
+                </p>
+              </Link>
+            ))}
           </div>
         </div>
       </section>
