@@ -31,8 +31,8 @@ describe("buildChecklist — 항상 포함 항목", () => {
 });
 
 describe("buildChecklist — 폭염", () => {
-  it("33℃ 미만(32.9℃)은 폭염 항목이 없다", () => {
-    const items = buildChecklist(calmInput({ tempC: 32.9 }), envPlace(), "default");
+  it("감점 시작점(28℃) 미만인 27.9℃는 폭염 항목이 없다", () => {
+    const items = buildChecklist(calmInput({ tempC: 27.9 }), envPlace(), "default");
     expect(items.join()).not.toContain("생수");
   });
 
@@ -53,13 +53,13 @@ describe("buildChecklist — 폭염", () => {
 });
 
 describe("buildChecklist — 강수", () => {
-  it("강수확률 59%는 우산 항목이 없다", () => {
-    const items = buildChecklist(calmInput({ rainProbPct: 59 }), envPlace(), "default");
+  it("감점 시작점(30%) 미만인 29%는 우산 항목이 없다", () => {
+    const items = buildChecklist(calmInput({ rainProbPct: 29 }), envPlace(), "default");
     expect(items.join()).not.toContain("우산");
   });
 
-  it("경계값 60%부터 우산·우비 항목이 생긴다", () => {
-    const items = buildChecklist(calmInput({ rainProbPct: 60 }), envPlace(), "default");
+  it("감점 시작점(30%)부터 우산·우비 항목이 생긴다", () => {
+    const items = buildChecklist(calmInput({ rainProbPct: 30 }), envPlace(), "default");
     expect(items).toContain("우산·우비 준비하기");
   });
 
@@ -124,13 +124,13 @@ describe("buildChecklist — 강풍", () => {
 });
 
 describe("buildChecklist — 미세먼지", () => {
-  it("PM2.5 35(보통 상한)는 마스크 항목이 없다", () => {
-    const items = buildChecklist(calmInput({ pm25: 35 }), envPlace(), "default");
+  it("감점 시작점('좋음' 상한 15) 이하인 PM2.5 15는 마스크 항목이 없다", () => {
+    const items = buildChecklist(calmInput({ pm25: 15 }), envPlace(), "default");
     expect(items.join()).not.toContain("마스크");
   });
 
-  it("경계값 36(나쁨)부터 KF80 마스크 항목이 생긴다", () => {
-    const items = buildChecklist(calmInput({ pm25: 36 }), envPlace(), "default");
+  it("감점 시작점('보통', 16)부터 KF80 마스크 항목이 생긴다", () => {
+    const items = buildChecklist(calmInput({ pm25: 16 }), envPlace(), "default");
     expect(items).toContain("보건용 마스크(KF80 이상) 챙기기");
   });
 
@@ -141,9 +141,9 @@ describe("buildChecklist — 미세먼지", () => {
 });
 
 describe("buildChecklist — 응급의료", () => {
-  it("19.9km는 상비약 항목이 없다", () => {
+  it("감점 시작점(10km) 이하인 10.0km는 상비약 항목이 없다", () => {
     const items = buildChecklist(
-      calmInput({ emergencyRoomKm: 19.9 }),
+      calmInput({ emergencyRoomKm: 10.0 }),
       envPlace(),
       "default",
     );
@@ -179,9 +179,19 @@ describe("buildChecklist — 응급의료", () => {
 });
 
 describe("buildChecklist — 산불위험", () => {
-  it("2단계는 화기 금지 항목이 없다", () => {
+  it("2단계는 강화 문구 대신 '취급 주의' 항목이 생긴다", () => {
     const items = buildChecklist(
       calmInput({ forestFireLevel: 2 }),
+      envPlace("outdoor_mountain"),
+      "default",
+    );
+    expect(items).toContain("건조한 시기 — 산림 인접지에서 화기 취급 주의하기");
+    expect(items.join()).not.toContain("화기 사용 금지");
+  });
+
+  it("1단계는 산불 항목이 없다", () => {
+    const items = buildChecklist(
+      calmInput({ forestFireLevel: 1 }),
       envPlace("outdoor_mountain"),
       "default",
     );

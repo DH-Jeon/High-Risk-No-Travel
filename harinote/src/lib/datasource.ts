@@ -106,12 +106,19 @@ export async function attachSafety(
   );
 }
 
-export async function getPlacesWithSafety(
-  query?: PlaceQuery,
-  profile: Profile = "default",
-): Promise<PlaceWithSafety[]> {
-  return attachSafety(await getPlaces(query), profile);
-}
+/**
+ * 요청 스코프 메모이즈 — 상세·리포트 페이지가 추천 후보로 전체(query=undefined)를
+ * 조회할 때 같은 요청 내 중복 전량 점수 계산을 1회로 줄인다.
+ * (cache()는 인자 동일성 기반이므로 query=undefined + 같은 profile 문자열일 때 적중)
+ */
+export const getPlacesWithSafety = cache(
+  async (
+    query?: PlaceQuery,
+    profile: Profile = "default",
+  ): Promise<PlaceWithSafety[]> => {
+    return attachSafety(await getPlaces(query), profile);
+  },
+);
 
 export async function getPlaceWithSafety(
   contentId: number,

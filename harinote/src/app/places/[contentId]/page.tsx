@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { getPlaceWithSafety, getPlacesWithSafety } from "@/lib/datasource";
 import { hasLiveRiskKeys } from "@/lib/risk/live";
 import { CONTENT_TYPE_LABEL, ENV_TYPE_LABEL } from "@/lib/tour/types";
-import { PROFILE_LABEL } from "@/lib/safety/types";
+import { PROFILE_LABEL, RISK_CATEGORY_LABELS } from "@/lib/safety/types";
 import { recommendAlternatives } from "@/lib/reco/alternatives";
 import { buildHalfDayCourse } from "@/lib/course/half-day";
 import CourseTimeline from "@/components/CourseTimeline";
@@ -36,13 +36,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const place = await getPlaceWithSafety(contentId);
   return { title: place ? `${place.title} 안전 점수` : "관광지 상세" };
 }
-
-const CATEGORY_CARDS = [
-  { key: "weatherRisk", icon: "🌤️", label: "기상" },
-  { key: "disasterRisk", icon: "⚠️", label: "재난" },
-  { key: "medicalRisk", icon: "🏥", label: "의료" },
-  { key: "mobilityRisk", icon: "🚗", label: "이동" },
-] as const;
 
 export default async function PlaceDetailPage({ params, searchParams }: Props) {
   const [{ contentId: rawId }, sp] = await Promise.all([params, searchParams]);
@@ -114,7 +107,7 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
       <section className="mt-8">
         <h2 className="text-lg font-bold text-slate-900">분야별 감점 요약</h2>
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {CATEGORY_CARDS.map((c) => {
+          {RISK_CATEGORY_LABELS.map((c) => {
             const points = safety[c.key];
             return (
               <div
@@ -147,14 +140,15 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
         </h2>
         <p className="mb-3 mt-1 text-sm text-slate-500">
           공식 기준(기상특보 임계값 등) 대비 오늘 예보·환경 값으로 감점을
-          계산했어요.
-          {hasLiveRiskKeys() && (
+          계산했어요. 응급의료 거리는 실제 의료기관 좌표 기반이에요.
+          {hasLiveRiskKeys() ? (
             <>
               {" "}
-              기상·미세먼지는 기상청·에어코리아 연동값, 응급의료 거리는 실제
-              의료기관 좌표 기반이고, 산불위험·대피소는 실연동 준비 중인
-              시범값이에요.
+              기상·미세먼지는 기상청·에어코리아 연동값이고, 산불위험·대피소는
+              실연동 준비 중인 시범값이에요.
             </>
+          ) : (
+            <> 기상·미세먼지·산불위험·대피소는 시범값 기준이에요.</>
           )}
         </p>
         <RiskBreakdownBar factors={safety.factors} />
