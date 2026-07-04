@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "seed": "tsx scripts/seed-tour.ts",
-    "check:tourapi": "tsx scripts/check-tourapi.ts"
+    "check:tourapi": "tsx scripts/check-tourapi.ts",
+    "check:risk": "tsx scripts/check-risk-apis.ts"
   },
   "dependencies": {
     "next": "16.2.10",

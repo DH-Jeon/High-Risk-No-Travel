@@ -12,6 +12,7 @@ import { cache } from "react";
 import type { Place } from "@/lib/tour/types";
 import type { Profile, RiskBreakdown, RiskInput } from "@/lib/safety/types";
 import { computeSafetyScore } from "@/lib/safety/score";
+import { getLiveRiskInput, hasLiveRiskKeys } from "@/lib/risk/live";
 import { mockRiskInputFor } from "@/fixtures/safety/risk-inputs";
 import { gangwonPlaces } from "@/fixtures/tour/gangwon";
 
@@ -74,8 +75,13 @@ export async function getPlace(contentId: number): Promise<Place | null> {
   return places.find((p) => p.contentId === contentId) ?? null;
 }
 
-/** 관광지의 위험 계산 입력값. 1주차: 결정적 mock, 2주차: 기상청·AirKorea 실연동으로 교체 */
+/**
+ * 관광지의 위험 계산 입력값.
+ * 키(KMA·AirKorea)가 있으면 실데이터(기온·강수·풍속·미세먼지), 없거나 실패 시 mock 폴백.
+ * 산불위험·응급의료 거리는 아직 mock (후속 연동 — docs/2주차_백로그.md)
+ */
 export async function getRiskInput(place: Place): Promise<RiskInput> {
+  if (hasLiveRiskKeys()) return getLiveRiskInput(place);
   return mockRiskInputFor(place);
 }
 
