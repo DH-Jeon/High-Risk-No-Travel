@@ -7,10 +7,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPlace, getPlacesWithSafety, getRiskInput } from "@/lib/datasource";
 import { computeSafetyScore } from "@/lib/safety/score";
-import { PROFILE_LABEL } from "@/lib/safety/types";
+import { PROFILE_LABEL, RISK_CATEGORY_LABELS } from "@/lib/safety/types";
 import { medicalDataSource, nearestHospital } from "@/lib/risk/medical";
+import { hasLiveRiskKeys } from "@/lib/risk/live";
 import { recommendAlternatives } from "@/lib/reco/alternatives";
-import { buildHalfDayCourse } from "@/lib/course/half-day";
+import { shouldAnchorOnAlternative } from "@/lib/course/half-day";
 import { buildChecklist } from "@/lib/report/checklist";
 import ReportActions from "@/components/ReportActions";
 import SafetyScoreBadge from "@/components/SafetyScoreBadge";
@@ -42,13 +43,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-const CATEGORY_LINE = [
-  { key: "weatherRisk", label: "기상" },
-  { key: "disasterRisk", label: "재난" },
-  { key: "medicalRisk", label: "의료" },
-  { key: "mobilityRisk", label: "이동" },
-] as const;
-
 /** 서버 렌더 시점의 오늘 날짜 — Asia/Seoul 기준 */
 function todaySeoul(): string {
   return new Intl.DateTimeFormat("ko-KR", {
@@ -70,10 +64,15 @@ export default async function ReportPage({ params, searchParams }: Props) {
   const safety = computeSafetyScore(riskInput, place, profile);
   const placeWithSafety = { ...place, safety };
 
-  // 대체 플랜: 상세 페이지와 동일한 추천·코스 로직 재사용
+  // 대체 플랜: 상세 페이지와 동일한 추천 로직 재사용.
+  // 코스 본체는 상세 페이지 몫 — 리포트는 "코스 변경 권고 여부"만 필요하므로
+  // 전량 코스 계산 대신 앵커 판정 함수만 사용한다.
   const candidates = await getPlacesWithSafety(undefined, profile);
   const alternatives = recommendAlternatives(placeWithSafety, candidates);
-  const course = buildHalfDayCourse(placeWithSafety, alternatives, candidates);
+  const recommendCourseSwitch = shouldAnchorOnAlternative(
+    placeWithSafety,
+    alternatives,
+  );
 
   const topFactors = safety.factors
     .filter((f) => f.points > 0)
@@ -81,7 +80,7 @@ export default async function ReportPage({ params, searchParams }: Props) {
     .slice(0, 3);
 
   const checklist = buildChecklist(riskInput, place, profile);
-  const hospital = nearestHospital(place.lat, place.lng);
+  const hospital = nearestHospital(place.lat, place.lng, place.contentId);
   const profileQuery = buildQuery({ profile: profileParam(profile) });
 
   return (
@@ -125,7 +124,7 @@ export default async function ReportPage({ params, searchParams }: Props) {
         <section className="mt-5 print:mt-4">
           <SafetyScoreBadge score={safety.score} grade={safety.grade} size="lg" />
           <p className="mt-2 text-sm font-semibold text-slate-600">
-            {CATEGORY_LINE.map((c, i) => (
+            {RISK_CATEGORY_LABELS.map((c, i) => (
               <span key={c.key}>
                 {i > 0 && <span className="text-slate-300"> · </span>}
                 {c.label}{" "}
@@ -225,7 +224,7 @@ export default async function ReportPage({ params, searchParams }: Props) {
         {alternatives.length > 0 && (
           <section className="mt-6 print:mt-4">
             <h2 className="text-base font-bold text-slate-900">대체 플랜</h2>
-            {course?.anchoredOnAlternative && (
+            {recommendCourseSwitch && (
               <p className="mt-1 text-sm font-semibold text-amber-700">
                 오늘은 코스 변경을 권해요 — 아래 대체지 중심의 반나절 코스를
                 추천해요.
@@ -257,8 +256,10 @@ export default async function ReportPage({ params, searchParams }: Props) {
             방문 전 기상특보와 현지 안내를 반드시 확인하세요.
           </p>
           <p className="mt-1">
-            데이터 출처: 한국관광공사 TourAPI · 기상청 · AirKorea(한국환경공단)
-            · 산림청 · {medicalDataSource()}
+            데이터 출처: 한국관광공사 TourAPI · {medicalDataSource()}
+            {hasLiveRiskKeys()
+              ? " · 기상청 · AirKorea(한국환경공단). 산불위험·대피소는 실연동 준비 중인 시범값입니다."
+              : ". 기상·미세먼지·산불위험·대피소는 시범값 기준입니다."}
           </p>
         </footer>
       </article>

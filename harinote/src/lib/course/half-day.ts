@@ -13,7 +13,11 @@
  */
 import type { PlaceWithSafety } from "@/lib/datasource";
 import type { Alternative } from "@/lib/reco/alternatives";
-import { RECO_WEATHER_RISK_INDOOR_THRESHOLD } from "@/lib/safety/weights";
+import {
+  COURSE_ANCHOR_SWITCH_MIN_GAIN,
+  COURSE_MIN_STOP_SCORE,
+  RECO_WEATHER_RISK_INDOOR_THRESHOLD,
+} from "@/lib/safety/weights";
 import { haversineKm } from "@/lib/reco/distance";
 
 export interface CourseStop {
@@ -30,10 +34,6 @@ export interface HalfDayCourse {
   anchoredOnAlternative: boolean;
 }
 
-/** 코스에 포함하는 최소 안전점수 */
-const MIN_STOP_SCORE = 60;
-/** "주의 요인 있음" target에서 대체지로 전환하는 최소 개선 폭 */
-const ANCHOR_SWITCH_MIN_GAIN = 10;
 /** 점심(음식점) 탐색 반경 */
 const LUNCH_RADIUS_KM = 10;
 /** 오후 스톱 탐색 반경 (직전 스톱 기준) */
@@ -45,19 +45,30 @@ function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
 
+/**
+ * 대체지 중심 코스로 전환해야 하는가 — 코스 본체 없이 배너 문구만 필요한
+ * 화면(체크 리포트)이 전량 코스 계산 없이 재사용할 수 있게 분리 export.
+ */
+export function shouldAnchorOnAlternative(
+  target: PlaceWithSafety,
+  alternatives: Alternative[],
+): boolean {
+  const top = alternatives[0];
+  return (
+    top !== undefined &&
+    (target.safety.grade === "high" ||
+      (target.safety.grade === "moderate" &&
+        top.safety.score >= target.safety.score + COURSE_ANCHOR_SWITCH_MIN_GAIN))
+  );
+}
+
 /** 앵커 결정: 위험한 target이면 대체지 1순위 중심으로 코스를 전환한다 */
 function pickAnchor(
   target: PlaceWithSafety,
   alternatives: Alternative[],
 ): { anchor: PlaceWithSafety; anchoredOnAlternative: boolean } {
-  const top = alternatives[0];
-  const shouldSwitch =
-    top !== undefined &&
-    (target.safety.grade === "high" ||
-      (target.safety.grade === "moderate" &&
-        top.safety.score >= target.safety.score + ANCHOR_SWITCH_MIN_GAIN));
-  return shouldSwitch
-    ? { anchor: top, anchoredOnAlternative: true }
+  return shouldAnchorOnAlternative(target, alternatives)
+    ? { anchor: alternatives[0], anchoredOnAlternative: true }
     : { anchor: target, anchoredOnAlternative: false };
 }
 
@@ -72,7 +83,7 @@ function pickLunch(
   for (const c of candidates) {
     if (c.contentTypeId !== 39) continue;
     if (excludeIds.has(c.contentId)) continue;
-    if (c.safety.score < MIN_STOP_SCORE) continue;
+    if (c.safety.score < COURSE_MIN_STOP_SCORE) continue;
     const km = haversineKm(anchor.lat, anchor.lng, c.lat, c.lng);
     if (km > LUNCH_RADIUS_KM) continue;
     if (
@@ -106,7 +117,7 @@ function pickAfternoon(
   for (const c of candidates) {
     if (c.contentTypeId !== 12 && c.contentTypeId !== 14) continue;
     if (excludeIds.has(c.contentId)) continue;
-    if (c.safety.score < MIN_STOP_SCORE) continue;
+    if (c.safety.score < COURSE_MIN_STOP_SCORE) continue;
     const km = haversineKm(from.lat, from.lng, c.lat, c.lng);
     if (km > AFTERNOON_RADIUS_KM) continue;
 
@@ -136,7 +147,7 @@ export function buildHalfDayCourse(
   const { anchor, anchoredOnAlternative } = pickAnchor(target, alternatives);
 
   // 앵커 자체가 60점 미만이면 코스 기준점이 없다 — 코스 생성 불가
-  if (anchor.safety.score < MIN_STOP_SCORE) return null;
+  if (anchor.safety.score < COURSE_MIN_STOP_SCORE) return null;
 
   // 앵커·target은 다른 슬롯에 재등장 금지 (대체지 전환 시 위험한 target 재추천 방지)
   const excludeIds = new Set([anchor.contentId, target.contentId]);

@@ -273,3 +273,26 @@ export const RECO_MIN_SCORE_GAIN = 5;
  * 특보 1개 초과분에 상당하는 설계값.
  */
 export const RECO_WEATHER_RISK_INDOOR_THRESHOLD = 15;
+
+// ─────────────────────────────────────────────
+// 반나절 코스(course)·체크리스트(report) 임계값 — 안전점수에 거는 기준이므로 이 파일에서 관리
+// ─────────────────────────────────────────────
+/**
+ * 코스에 포함하는 최소 안전점수.
+ * 근거: 등급 컷 moderate 하한(40)과 low 하한(70)의 중간 — "주의 요인이 뚜렷하지 않은
+ * 수준"의 설계값. 코스는 안내가 아니라 권유이므로 등급 low보다 완화된 컷 적용.
+ */
+export const COURSE_MIN_STOP_SCORE = 60;
+
+/**
+ * "주의 요인 있음(moderate)" 대상에서 대체지 중심 코스로 전환하는 최소 개선 폭.
+ * 근거: 추천 노출 기준(RECO_MIN_SCORE_GAIN=5)의 2배 — 단순 노출보다 "일정 자체를
+ * 바꾸라"는 더 강한 권고이므로 두 배의 확신을 요구하는 설계값.
+ */
+export const COURSE_ANCHOR_SWITCH_MIN_GAIN = 10;
+
+/**
+ * 산불 준비 문구를 띄우는 최소 단계.
+ * 근거: 산림청 4단계 중 3단계('높음')부터 입산 통제·화기 단속이 통상 강화됨.
+ */
+export const CHECKLIST_FIRE_LEVEL = 3;

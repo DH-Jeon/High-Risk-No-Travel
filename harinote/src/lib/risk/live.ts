@@ -50,10 +50,14 @@ export async function getLiveRiskInput(
   const [weather, pm25, forestFire] = await Promise.allSettled([
     fetchKmaDailyWeather(nx, ny),
     getGangwonPm25(place.sigunguCode),
-    // 시군 코드가 없으면 산불 조회는 건너뛴다 (rejected로 정착 → mock 유지)
-    place.sigunguCode !== undefined
+    // 시군 코드가 없거나 실연동 키가 없으면 산불 조회는 건너뛴다 (rejected → mock 유지).
+    // hasLiveRiskKeys 게이트: 키 없는 환경(clean checkout·CI)에서 forest가
+    // TOUR_API_KEY 폴백으로 네트워크를 태우지 않도록 — "키 없으면 네트워크 0" 불변식 유지
+    place.sigunguCode !== undefined && hasLiveRiskKeys()
       ? fetchForestFireLevel(place.sigunguCode)
-      : Promise.reject(new Error("sigunguCode 없음 — 산불위험 조회 생략")),
+      : Promise.reject(
+          new Error("실연동 키/시군코드 없음 — 산불위험 조회 생략"),
+        ),
   ]);
 
   if (weather.status === "fulfilled") {

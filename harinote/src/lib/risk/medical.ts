@@ -25,38 +25,11 @@ const HOSPITALS: Hospital[] = (Array.isArray(hospitalsJson) ? (hospitalsJson as 
   (h) => Number.isFinite(h?.lat) && Number.isFinite(h?.lng),
 );
 
-/** contentId → 최근접 거리(km) 메모 — 관광지 좌표는 불변이므로 무기한 유효 */
-const memo = new Map<number, number>();
+/** contentId → 최근접 결과 메모 — 관광지 좌표는 불변이므로 무기한 유효 */
+const memo = new Map<number, { name: string; km: number } | null>();
 
-/**
- * 최근접 응급의료기관까지 거리(km).
- * contentId를 주면 메모이즈된다. 병원 데이터가 비어 있으면 Infinity를
- * 반환하므로 호출부는 Number.isFinite로 폴백 여부를 판단한다.
- */
-export function nearestHospitalKm(lat: number, lng: number, contentId?: number): number {
-  if (contentId !== undefined) {
-    const cached = memo.get(contentId);
-    if (cached !== undefined) return cached;
-  }
-  let min = Infinity;
-  for (const h of HOSPITALS) {
-    const d = haversineKm(lat, lng, h.lat, h.lng);
-    if (d < min) min = d;
-  }
-  if (contentId !== undefined && Number.isFinite(min)) {
-    memo.set(contentId, min);
-  }
-  return min;
-}
-
-/**
- * 최근접 응급의료기관 이름+거리(km) — 출발 전 체크 리포트용.
- * 병원 데이터가 비어 있으면 null (호출부는 섹션 문구로 폴백).
- */
-export function nearestHospital(
-  lat: number,
-  lng: number,
-): { name: string; km: number } | null {
+/** 단일 스캔 함수 — 거리·이름 API가 같은 로직을 공유해 결과가 절대 어긋나지 않는다 */
+function scanNearest(lat: number, lng: number): { name: string; km: number } | null {
   let best: Hospital | null = null;
   let min = Infinity;
   for (const h of HOSPITALS) {
@@ -67,6 +40,33 @@ export function nearestHospital(
     }
   }
   return best ? { name: best.name, km: min } : null;
+}
+
+/**
+ * 최근접 응급의료기관 이름+거리(km) — 출발 전 체크 리포트용.
+ * 병원 데이터가 비어 있으면 null (호출부는 섹션 문구로 폴백).
+ * contentId를 주면 메모이즈된다.
+ */
+export function nearestHospital(
+  lat: number,
+  lng: number,
+  contentId?: number,
+): { name: string; km: number } | null {
+  if (contentId !== undefined && memo.has(contentId)) {
+    return memo.get(contentId) ?? null;
+  }
+  const result = scanNearest(lat, lng);
+  if (contentId !== undefined) memo.set(contentId, result);
+  return result;
+}
+
+/**
+ * 최근접 응급의료기관까지 거리(km) — nearestHospital에서 파생.
+ * 병원 데이터가 비어 있으면 Infinity를 반환하므로
+ * 호출부는 Number.isFinite로 폴백 여부를 판단한다.
+ */
+export function nearestHospitalKm(lat: number, lng: number, contentId?: number): number {
+  return nearestHospital(lat, lng, contentId)?.km ?? Infinity;
 }
 
 /** 출처 표기 — UI 각주용 */

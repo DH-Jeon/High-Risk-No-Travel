@@ -89,6 +89,14 @@ export interface RiskBreakdown {
   mobilityRisk: number;
 }
 
+/** 카테고리 소계 표시용 공용 정의 — 상세·리포트 화면이 같은 키·라벨·아이콘을 공유한다 */
+export const RISK_CATEGORY_LABELS = [
+  { key: "weatherRisk", icon: "🌤️", label: "기상" },
+  { key: "disasterRisk", icon: "⚠️", label: "재난" },
+  { key: "medicalRisk", icon: "🏥", label: "의료" },
+  { key: "mobilityRisk", icon: "🚗", label: "이동" },
+] as const;
+
 export const GRADE_LABEL: Record<RiskLevel, string> = {
   low: "방문 주의 요인 낮음",
   moderate: "주의 요인 있음",
