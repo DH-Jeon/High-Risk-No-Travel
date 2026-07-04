@@ -9,12 +9,16 @@ import type { RegionSummary } from "@/lib/risk/region-summary";
 
 export interface RegionRiskMapProps {
   regions: RegionSummary[];
+  /** 선택된 시군 코드 — 해당 폴리곤 강조 */
+  selectedCode?: number | null;
+  /** 시군 폴리곤/마커 클릭 콜백 */
+  onSelectRegion?: (sigunguCode: number) => void;
 }
 
 const RegionRiskMapInner = dynamic(() => import("./RegionRiskMapInner"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-80 w-full items-center justify-center rounded-2xl bg-slate-100 text-sm text-slate-400 ring-1 ring-slate-200">
+    <div className="flex h-[420px] w-full items-center justify-center rounded-2xl bg-slate-100 text-sm text-slate-400 ring-1 ring-slate-200 sm:h-[500px]">
       지도를 불러오는 중…
     </div>
   ),
