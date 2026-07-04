@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getLiveRiskInput, hasLiveRiskKeys } from "@/lib/risk/live";
+import { nearestHospitalKm } from "@/lib/risk/medical";
 import { mockRiskInputFor } from "@/fixtures/safety/risk-inputs";
 
 const place = {
@@ -44,15 +45,21 @@ describe("getLiveRiskInput — 전체 실패 폴백", () => {
     vi.restoreAllMocks();
   });
 
-  it("두 소스가 모두 실패하면 throw 없이 mock 전체를 반환하고, 경고는 1회만 남긴다", async () => {
+  it("두 소스가 모두 실패하면 throw 없이 mock을 반환하고, 경고는 1회만 남긴다", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
+    // emergencyRoomKm만은 네트워크 없이 내장 병원 좌표로 실계산된다
+    const expected = (p: typeof place) => ({
+      ...mockRiskInputFor(p),
+      emergencyRoomKm: Math.round(nearestHospitalKm(p.lat, p.lng) * 10) / 10,
+    });
+
     const first = await getLiveRiskInput(place);
-    expect(first).toEqual(mockRiskInputFor(place));
+    expect(first).toEqual(expected(place));
 
     // 두 번째 호출(다른 관광지, 같은 시군)에도 경고가 중복되지 않는다
     const second = await getLiveRiskInput({ ...place, contentId: 226001 });
-    expect(second).toEqual(mockRiskInputFor({ ...place, contentId: 226001 }));
+    expect(second).toEqual(expected({ ...place, contentId: 226001 }));
 
     expect(warnSpy).toHaveBeenCalledTimes(1);
   });

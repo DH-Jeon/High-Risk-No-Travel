@@ -1,0 +1,156 @@
+[
+ {
+  "name": "강릉아산병원",
+  "lat": 37.818411,
+  "lng": 128.85783,
+  "sigunguCode": 1,
+  "source": "국립중앙의료원 헬스맵 공공보건의료 통계 데이터셋(2023-12-31 기준) — 공공데이터포털 https://www.data.go.kr/data/15154171/fileData.do"
+ },
+ {
+  "name": "강원특별자치도강릉의료원",
+  "lat": 37.749311,
+  "lng": 128.888767,
+  "sigunguCode": 1,
+  "source": "국립중앙의료원 헬스맵 공공보건의료 통계 데이터셋(2023-12-31 기준) — 공공데이터포털 https://www.data.go.kr/data/15154171/fileData.do"
+ },
+ {
+  "name": "의료법인 강릉동인병원",
+  "lat": 37.774052,
+  "lng": 128.906886,
+  "sigunguCode": 1,
+  "source": "국립중앙의료원 헬스맵 공공보건의료 통계 데이터셋(2023-12-31 기준) — 공공데이터포털 https://www.data.go.kr/data/15154171/fileData.do"
+ },
+ {
+  "name": "근로복지공단 동해병원",
+  "lat": 37.532231,
+  "lng": 129.10611,
+  "sigunguCode": 3,
+  "source": "국립중앙의료원 헬스맵 공공보건의료 통계 데이터셋(2023-12-31 기준) — 공공데이터포털 https://www.data.go.kr/data/15154171/fileData.do"
+ },
+ {
+  "name": "의료법인 동해동인병원",
+  "lat": 37.530112,
+  "lng": 129.107491,
+  "sigunguCode": 3,
+  "source": "국립중앙의료원 헬스맵 공공보건의료 통계 데이터셋(2023-12-31 기준) — 공공데이터포털 https://www.data.go.kr/data/15154171/fileData.do"
+ },
+ {
+  "name": "강원특별자치도삼척의료원",
+  "lat": 37.440185,
+  "lng": 129.164003,
+  "sigunguCode": 4,
+  "source": "국립중앙의료원 헬스맵 공공보건의료 통계 데이터셋(2023-12-31 기준) — 공공데이터포털 https://www.data.go.kr/data/15154171/fileData.do"
+ },
+ {
+  "name": "강원특별자치도속초의료원",
+  "lat": 38.216494,
+  "lng": 128.588636,
+  "sigunguCode": 5,
+  "source": "국립중앙의료원 헬스맵 공공보건의료 통계 데이터셋(2023-12-31 기준) — 공공데이터포털 https://www.data.go.kr/data/15154171/fileData.do"
+ },
+ {
+  "name": "속초보광병원",
+  "lat": 38.19812,
+  "lng": 128.578621,
+  "sigunguCode": 5,
+  "source": "국립중앙의료원 헬스맵 공공보건의료 통계 데이터셋(2023-12-31 기준) — 공공데이터포털 https://www.data.go.kr/data/15154171/fileData.do"
+ },
+ {
+  "name": "의료법인 성심의료재단 양구성심병원",
+  "lat": 38.104477,
+  "lng": 127.99119,
+  "sigunguCode": 6,
+  "source": "국립중앙의료원 헬스맵 공공보건의료 통계 데이터셋(2023-12-31 기준) — 공공데이터포털 https://www.data.go.kr/data/15154171/fileData.do"
+ },
+ {
+  "name": "강원특별자치도영월의료원",
+  "lat": 37.18642,
+  "lng": 128.465147,
+  "sigunguCode": 8,
+  "source": "국립중앙의료원 헬스맵 공공보건의료 통계 데이터셋(2023-12-31 기준) — 공공데이터포털 https://www.data.go.kr/data/15154171/fileData.do"
+ },
+ {
+  "name": "강원특별자치도원주의료원",
+  "lat": 37.333005,
+  "lng": 127.948543,
+  "sigunguCode": 9,
+  "source": "국립중앙의료원 헬스맵 공공보건의료 통계 데이터셋(2023-12-31 기준) — 공공데이터포털 https://www.data.go.kr/data/15154171/fileData.do"
+ },
+ {
+  "name": "연세대학교 원주세브란스기독병원",
+  "lat": 37.349005,
+  "lng": 127.945827,
+  "sigunguCode": 9,
+  "source": "국립중앙의료원 헬스맵 공공보건의료 통계 데이터셋(2023-12-31 기준) — 공공데이터포털 https://www.data.go.kr/data/15154171/fileData.do"
+ },
+ {
+  "name": "의료법인 성지의료재단 성지병원",
+  "lat": 37.345512,
+  "lng": 127.954285,
+  "sigunguCode": 9,
+  "source": "국립중앙의료원 헬스맵 공공보건의료 통계 데이터셋(2023-12-31 기준) — 공공데이터포털 https://www.data.go.kr/data/15154171/fileData.do"
+ },
+ {
+  "name": "근로복지공단 정선병원",
+  "lat": 37.383151,
+  "lng": 128.658984,
+  "sigunguCode": 11,
+  "source": "국립중앙의료원 헬스맵 공공보건의료 통계 데이터셋(2023-12-31 기준) — 공공데이터포털 https://www.data.go.kr/data/15154171/fileData.do"
+ },
+ {
+  "name": "철원병원",
+  "lat": 38.150131,
+  "lng": 127.308019,
+  "sigunguCode": 12,
+  "source": "국립중앙의료원 헬스맵 공공보건의료 통계 데이터셋(2023-12-31 기준) — 공공데이터포털 https://www.data.go.kr/data/15154171/fileData.do"
+ },
+ {
+  "name": "강원대학교병원",
+  "lat": 37.87488,
+  "lng": 127.744581,
+  "sigunguCode": 13,
+  "source": "국립중앙의료원 헬스맵 공공보건의료 통계 데이터셋(2023-12-31 기준) — 공공데이터포털 https://www.data.go.kr/data/15154171/fileData.do"
+ },
+ {
+  "name": "한림대학교부속 춘천성심병원",
+  "lat": 37.884263,
+  "lng": 127.739915,
+  "sigunguCode": 13,
+  "source": "국립중앙의료원 헬스맵 공공보건의료 통계 데이터셋(2023-12-31 기준) — 공공데이터포털 https://www.data.go.kr/data/15154171/fileData.do"
+ },
+ {
+  "name": "근로복지공단 태백병원",
+  "lat": 37.104024,
+  "lng": 129.004375,
+  "sigunguCode": 14,
+  "source": "국립중앙의료원 헬스맵 공공보건의료 통계 데이터셋(2023-12-31 기준) — 공공데이터포털 https://www.data.go.kr/data/15154171/fileData.do"
+ },
+ {
+  "name": "평창군보건의료원",
+  "lat": 37.368945,
+  "lng": 128.390742,
+  "sigunguCode": 15,
+  "source": "국립중앙의료원 헬스맵 공공보건의료 통계 데이터셋(2023-12-31 기준) — 공공데이터포털 https://www.data.go.kr/data/15154171/fileData.do"
+ },
+ {
+  "name": "홍천아산병원",
+  "lat": 37.690649,
+  "lng": 127.894624,
+  "sigunguCode": 16,
+  "source": "국립중앙의료원 헬스맵 공공보건의료 통계 데이터셋(2023-12-31 기준) — 공공데이터포털 https://www.data.go.kr/data/15154171/fileData.do"
+ },
+ {
+  "name": "화천군보건의료원",
+  "lat": 38.107283,
+  "lng": 127.709104,
+  "sigunguCode": 17,
+  "source": "국립중앙의료원 헬스맵 공공보건의료 통계 데이터셋(2023-12-31 기준) — 공공데이터포털 https://www.data.go.kr/data/15154171/fileData.do"
+ },
+ {
+  "name": "횡성대성병원",
+  "lat": 37.478363,
+  "lng": 127.979857,
+  "sigunguCode": 18,
+  "source": "국립중앙의료원 헬스맵 공공보건의료 통계 데이터셋(2023-12-31 기준) — 공공데이터포털 https://www.data.go.kr/data/15154171/fileData.do"
+ }
+]

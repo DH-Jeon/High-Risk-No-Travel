@@ -12,8 +12,7 @@ import { cache } from "react";
 import type { Place } from "@/lib/tour/types";
 import type { Profile, RiskBreakdown, RiskInput } from "@/lib/safety/types";
 import { computeSafetyScore } from "@/lib/safety/score";
-import { getLiveRiskInput, hasLiveRiskKeys } from "@/lib/risk/live";
-import { mockRiskInputFor } from "@/fixtures/safety/risk-inputs";
+import { getLiveRiskInput } from "@/lib/risk/live";
 import { gangwonPlaces } from "@/fixtures/tour/gangwon";
 
 export type DataSource = "json" | "mock" | "db" | "live";
@@ -85,13 +84,13 @@ export async function getPlace(contentId: number): Promise<Place | null> {
 }
 
 /**
- * 관광지의 위험 계산 입력값.
- * 키(KMA·AirKorea)가 있으면 실데이터(기온·강수·풍속·미세먼지), 없거나 실패 시 mock 폴백.
- * 산불위험·응급의료 거리는 아직 mock (후속 연동 — docs/2주차_백로그.md)
+ * 관광지의 위험 계산 입력값 — 항상 live 경로를 사용한다.
+ * getLiveRiskInput은 소스별 폴백을 내장하므로 키가 없어도 안전하며,
+ * 응급의료 거리(내장 병원 좌표 실계산)는 키·네트워크 없이도 실값이 나온다.
+ * 남은 mock: 대피소(shelterKm), 산불위험(활용신청 승인 전까지).
  */
 export async function getRiskInput(place: Place): Promise<RiskInput> {
-  if (hasLiveRiskKeys()) return getLiveRiskInput(place);
-  return mockRiskInputFor(place);
+  return getLiveRiskInput(place);
 }
 
 /** 관광지 배열에 안전점수를 계산해 붙인다 — 화면에 실제로 노출될 항목에만 호출할 것 */
