@@ -10,6 +10,7 @@ import {
   type CourseTheme,
 } from "@/lib/course/themed";
 import CourseCard from "@/components/CourseCard";
+import LinkLabel from "@/components/LinkLabel";
 import ProfileChips from "@/components/ProfileChips";
 import {
   buildQuery,
@@ -81,7 +82,7 @@ export default async function CoursesPage({ searchParams }: Props) {
                     : "bg-slate-50 text-slate-600 ring-1 ring-slate-200 hover:bg-teal-50 hover:text-teal-700"
                 }`}
               >
-                ✨ 전체 3선
+                <LinkLabel>✨ 전체 3선</LinkLabel>
               </Link>
               {COURSE_THEMES.map((t) => {
                 const meta = COURSE_THEME_META[t];
@@ -97,7 +98,9 @@ export default async function CoursesPage({ searchParams }: Props) {
                         : "bg-slate-50 text-slate-600 ring-1 ring-slate-200 hover:bg-teal-50 hover:text-teal-700"
                     }`}
                   >
-                    {meta.emoji} {meta.label}
+                    <LinkLabel>
+                      {meta.emoji} {meta.label}
+                    </LinkLabel>
                   </Link>
                 );
               })}
@@ -122,7 +125,7 @@ export default async function CoursesPage({ searchParams }: Props) {
                         : "bg-slate-50 text-slate-600 ring-1 ring-slate-200 hover:bg-teal-50 hover:text-teal-700"
                     }`}
                   >
-                    {s.name}
+                    <LinkLabel>{s.name}</LinkLabel>
                   </Link>
                 );
               })}

@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Profile } from "@/lib/safety/types";
 import { PROFILE_LABEL } from "@/lib/safety/types";
 import { buildQuery, profileParam } from "@/components/search-params";
+import LinkLabel from "@/components/LinkLabel";
 
 const PROFILE_ICON: Record<Profile, string> = {
   default: "👤",
@@ -40,8 +41,10 @@ export default function ProfileChips({
                 : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-teal-50 hover:text-teal-700"
             }`}
           >
-            <span aria-hidden="true">{PROFILE_ICON[p]}</span>
-            {PROFILE_LABEL[p]}
+            <LinkLabel>
+              <span aria-hidden="true">{PROFILE_ICON[p]}</span>
+              {PROFILE_LABEL[p]}
+            </LinkLabel>
           </Link>
         );
       })}
