@@ -6,6 +6,7 @@
  * 썸네일/대표 클릭 시 라이트박스로 확대한다. 이미지 로드 실패는 해당 장만 숨긴다.
  */
 import { useState } from "react";
+import Image from "next/image";
 import type { PlaceEnvType } from "@/lib/tour/types";
 
 const ENV_PLACEHOLDER: Record<PlaceEnvType, { emoji: string; bg: string }> = {
@@ -54,15 +55,16 @@ export default function PlaceGallery({ title, envType, images }: Props) {
         <button
           type="button"
           onClick={() => setLightbox(true)}
-          className="block h-64 w-full overflow-hidden rounded-2xl ring-1 ring-slate-200 sm:h-80"
+          className="relative block h-64 w-full overflow-hidden rounded-2xl ring-1 ring-slate-200 sm:h-80"
           aria-label={`${title} 사진 크게 보기`}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={current}
             alt={title}
+            fill
+            sizes="(max-width: 1024px) 100vw, 640px"
             onError={() => markBroken(current)}
-            className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
+            className="object-cover transition-transform duration-300 hover:scale-105"
           />
         </button>
 
@@ -74,18 +76,19 @@ export default function PlaceGallery({ title, envType, images }: Props) {
                 type="button"
                 onClick={() => setActive(i)}
                 aria-current={url === current ? "true" : undefined}
-                className={`h-16 w-16 shrink-0 overflow-hidden rounded-lg ring-2 transition-all ${
+                className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-lg ring-2 transition-all ${
                   url === current
                     ? "ring-teal-500"
                     : "opacity-70 ring-transparent hover:opacity-100"
                 }`}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <Image
                   src={url}
                   alt=""
+                  fill
+                  sizes="64px"
                   onError={() => markBroken(url)}
-                  className="h-full w-full object-cover"
+                  className="object-cover"
                 />
               </button>
             ))}
