@@ -5,11 +5,14 @@ import { getPlaceWithSafety, getPlacesWithSafety } from "@/lib/datasource";
 import { hasLiveRiskKeys } from "@/lib/risk/live";
 import { CONTENT_TYPE_LABEL, ENV_TYPE_LABEL } from "@/lib/tour/types";
 import { PROFILE_LABEL, RISK_CATEGORY_LABELS } from "@/lib/safety/types";
+import { Suspense } from "react";
 import { recommendAlternatives } from "@/lib/reco/alternatives";
 import { buildHalfDayCourse } from "@/lib/course/half-day";
 import CourseTimeline from "@/components/CourseTimeline";
 import PlaceCard from "@/components/PlaceCard";
+import PlaceGallery from "@/components/PlaceGallery";
 import PlaceMap from "@/components/PlaceMap";
+import { GallerySection, ReviewsSection } from "./sections";
 import ProfileChips from "@/components/ProfileChips";
 import RiskBreakdownBar from "@/components/RiskBreakdownBar";
 import SafetyScoreBadge from "@/components/SafetyScoreBadge";
@@ -48,8 +51,10 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
 
   const { safety } = place;
 
-  // 대체지 추천: 전체 후보(요청 스코프 캐시로 재로드 비용 없음)에서 30km 이내 더 안전한 곳
+  // 대체지 추천: 전체 후보(요청 스코프 캐시로 재로드 비용 없음)에서 30km 이내 더 안전한 곳.
+  // 사진 갤러리(detailImage2)·후기(네이버)는 느린 외부 API라 Suspense로 스트리밍한다.
   const candidates = await getPlacesWithSafety(undefined, profile);
+
   const alternatives = recommendAlternatives(place, candidates);
 
   // 안전 반나절 코스: 앵커(target 또는 대체지 1순위) + 음식점 + 관광지·문화시설
@@ -63,6 +68,26 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
       >
         <span aria-hidden="true">←</span> 목록으로
       </Link>
+
+      {/* 사진 갤러리 — 대표사진 즉시 표시, detailImage2 추가 사진은 스트리밍으로 채움 */}
+      <div className="mt-4">
+        <Suspense
+          fallback={
+            <PlaceGallery
+              title={place.title}
+              envType={place.envType}
+              images={place.imageUrl ? [place.imageUrl] : []}
+            />
+          }
+        >
+          <GallerySection
+            contentId={contentId}
+            title={place.title}
+            envType={place.envType}
+            imageUrl={place.imageUrl}
+          />
+        </Suspense>
+      </div>
 
       {/* 상단: 제목·주소·뱃지 */}
       <div className="mt-4">
@@ -163,6 +188,11 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
           </p>
         </section>
       )}
+
+      {/* 방문 후기 — 네이버 블로그 검색 (스트리밍, 후기 없으면 섹션 숨김) */}
+      <Suspense fallback={null}>
+        <ReviewsSection title={place.title} />
+      </Suspense>
 
       {/* 위치 지도 */}
       <section className="mt-8">
