@@ -112,16 +112,42 @@ export async function attachSafety(
 }
 
 /**
- * 요청 스코프 메모이즈 — 상세·리포트 페이지가 추천 후보로 전체(query=undefined)를
- * 조회할 때 같은 요청 내 중복 전량 점수 계산을 1회로 줄인다.
- * (cache()는 인자 동일성 기반이므로 query=undefined + 같은 profile 문자열일 때 적중)
+ * 전체 관광지 + 안전점수 (profile별). 두 겹 캐시로 무거운 전량 점수 계산을 줄인다:
+ * - 프로세스 메모리 캐시(10분 TTL): 서버 인스턴스가 살아있는 동안 요청 간 재사용.
+ *   전체 결과가 ~3MB라 Next 데이터 캐시(2MB 상한) 대신 in-memory를 쓴다. 연속 조회(데모·탐색)에 특히 효과적.
+ * - React cache: 같은 요청 안의 중복 호출(generateMetadata·본문·대체지 등)을 1회로.
+ * live 소스는 캐시가 특히 중요(직접 호출은 페이지당 수십 초).
+ */
+const PLACES_CACHE_TTL_MS = 10 * 60 * 1000;
+const placesCacheStore = new Map<
+  Profile,
+  { data: PlaceWithSafety[]; expiresAt: number }
+>();
+
+const getAllWithSafety = cache(
+  async (profile: Profile): Promise<PlaceWithSafety[]> => {
+    const hit = placesCacheStore.get(profile);
+    if (hit && hit.expiresAt > Date.now()) return hit.data;
+    const data = await attachSafety(await loadPlaces(), profile);
+    placesCacheStore.set(profile, {
+      data,
+      expiresAt: Date.now() + PLACES_CACHE_TTL_MS,
+    });
+    return data;
+  },
+);
+
+/**
+ * 관광지 + 안전점수 조회. 전체를 캐시로 계산한 뒤 query로 필터하므로
+ * 검색·상세·코스가 모두 같은 캐시를 재사용한다. 시그니처는 계약(불변).
  */
 export const getPlacesWithSafety = cache(
   async (
     query?: PlaceQuery,
     profile: Profile = "default",
   ): Promise<PlaceWithSafety[]> => {
-    return attachSafety(await getPlaces(query), profile);
+    const all = await getAllWithSafety(profile);
+    return query ? all.filter((p) => matches(p, query)) : all;
   },
 );
 
@@ -129,10 +155,6 @@ export async function getPlaceWithSafety(
   contentId: number,
   profile: Profile = "default",
 ): Promise<PlaceWithSafety | null> {
-  const place = await getPlace(contentId);
-  if (!place) return null;
-  return {
-    ...place,
-    safety: computeSafetyScore(await getRiskInput(place), place, profile),
-  };
+  const all = await getAllWithSafety(profile);
+  return all.find((p) => p.contentId === contentId) ?? null;
 }
