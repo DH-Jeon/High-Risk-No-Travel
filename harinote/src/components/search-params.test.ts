@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseSigungu } from "@/components/search-params";
+import { parseCourseTheme, parseSigungu } from "@/components/search-params";
 
 describe("parseSigungu", () => {
   it("SIGUNGU_SEATS에 있는 코드(1~18)는 숫자로 반환", () => {
@@ -22,5 +22,23 @@ describe("parseSigungu", () => {
 
   it("배열이면 첫 값 기준", () => {
     expect(parseSigungu(["5", "13"])).toBe(5);
+  });
+});
+
+describe("parseCourseTheme", () => {
+  it("COURSE_THEMES에 있는 값은 그대로 반환", () => {
+    expect(parseCourseTheme("nature")).toBe("nature");
+    expect(parseCourseTheme("water")).toBe("water");
+    expect(parseCourseTheme("culture")).toBe("culture");
+  });
+
+  it("없는 값·빈 값은 undefined(전체)", () => {
+    expect(parseCourseTheme("food")).toBeUndefined();
+    expect(parseCourseTheme("")).toBeUndefined();
+    expect(parseCourseTheme(undefined)).toBeUndefined();
+  });
+
+  it("배열이면 첫 값 기준", () => {
+    expect(parseCourseTheme(["water", "nature"])).toBe("water");
   });
 });
