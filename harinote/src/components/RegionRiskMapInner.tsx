@@ -6,27 +6,9 @@ import "leaflet/dist/leaflet.css";
 import type { RiskLevel } from "@/lib/safety/types";
 import { GRADE_LABEL } from "@/lib/safety/types";
 import { GANGWON_GEO, type LatLngTuple } from "@/lib/geo/gangwon";
+import { scoreColor, NO_DATA_HEX } from "@/lib/risk/map-colors";
 import type { RegionRiskMapProps } from "./RegionRiskMap";
 
-/**
- * 등급별 색상(hue·채도)은 SafetyScoreBadge의 emerald/amber/red 체계와 맞추고,
- * 같은 등급 안에서 안전점수로 명암(lightness)을 연속 조절한다 (sequential choropleth).
- * 점수가 높을수록(=더 안전) 진하게 — 오늘 다 같은 등급이어도 강약이 보인다.
- */
-const GRADE_HSL: Record<RiskLevel, { h: number; s: number }> = {
-  low: { h: 158, s: 64 }, // emerald 계열
-  moderate: { h: 38, s: 90 }, // amber 계열
-  high: { h: 2, s: 78 }, // red 계열
-};
-const NO_DATA_HEX = "#94a3b8"; // slate-400
-
-/** 안전점수 → 등급 hue 안에서의 색. 관광 안전점수 실질 범위(70~100)를 명암으로 편다. */
-function scoreColor(score: number, grade: RiskLevel): string {
-  const { h, s } = GRADE_HSL[grade];
-  const t = Math.max(0, Math.min(1, (score - 70) / 30));
-  const l = 45 - t * 17; // 45%(낮은 점수, 연함) → 28%(높은 점수, 진함)
-  return `hsl(${h} ${s}% ${l}%)`;
-}
 const SELECTED_STROKE = "#0f766e"; // teal-700
 
 /** 마스크 외곽 링 — 강원도 구멍(evenodd)을 뚫어 도 밖을 덮는다 */
