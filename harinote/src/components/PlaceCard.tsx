@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { PlaceWithSafety } from "@/lib/datasource";
 import type { PlaceEnvType } from "@/lib/tour/types";
 import { CONTENT_TYPE_LABEL, ENV_TYPE_LABEL } from "@/lib/tour/types";
@@ -33,12 +34,12 @@ export default function PlaceCard({ place, profile, footer }: Props) {
     >
       <div className="relative h-40 overflow-hidden">
         {place.imageUrl ? (
-          // TourAPI 외부 이미지 — next/image remotePatterns 설정 없이 표시
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={place.imageUrl}
             alt={place.title}
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            fill
+            sizes="(max-width: 640px) 100vw, 320px"
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
           <div
