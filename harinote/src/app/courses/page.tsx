@@ -63,7 +63,7 @@ export default async function CoursesPage({ searchParams }: Props) {
   const seat = SIGUNGU_SEATS[sigungu];
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
+    <div className="mx-auto max-w-6xl px-4 py-8">
       <Link
         href={`/courses${buildQuery({ profile: profileParam(profile) })}`}
         className="inline-flex items-center gap-1 text-sm font-semibold text-slate-500 transition-colors hover:text-teal-700"
@@ -87,7 +87,7 @@ export default async function CoursesPage({ searchParams }: Props) {
         />
       </div>
 
-      <div className="mt-6 space-y-6">
+      <div className="mt-6 grid items-start gap-6 lg:grid-cols-3">
         {COURSE_THEMES.map((theme) => {
           const course = courses[theme];
           const meta = COURSE_THEME_META[theme];
