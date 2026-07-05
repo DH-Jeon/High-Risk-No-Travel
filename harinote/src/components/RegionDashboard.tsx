@@ -51,6 +51,13 @@ export default function RegionDashboard({
             데이터 없음
           </li>
         </ul>
+        <p className="mt-1.5 text-xs text-slate-400">
+          같은 색이라도{" "}
+          <span className="font-semibold text-slate-500">
+            진할수록 안전점수가 높아요
+          </span>
+          .
+        </p>
       </div>
       <RegionPanel
         regions={regions}
