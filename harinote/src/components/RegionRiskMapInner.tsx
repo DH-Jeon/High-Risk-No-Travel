@@ -28,6 +28,16 @@ const WORLD_RING: LatLngTuple[] = [
 /** 강원 전체 경계 — 초기 화면·이동 제한 기준 */
 const GANGWON_BOUNDS = latLngBounds(GANGWON_GEO.maskHoles.flat());
 
+/**
+ * 라벨 위치 오프셋 [Δlat, Δlng] — 시군청 소재지가 가로로 좁게 붙은 곳은
+ * 알약 라벨끼리 겹친다. 겹치는 시군만 라벨을 살짝 이동한다 (폴리곤·클릭 위치는 불변).
+ * 6 양구군: 화천·인제 사이 → 위로 / 11 정선군: 평창과 겹침 → 오른쪽 아래
+ */
+const LABEL_OFFSET: Record<number, [number, number]> = {
+  6: [0.13, 0],
+  11: [-0.05, 0.12],
+};
+
 /** 시군명 + 중앙값 점수 알약 라벨 (기본 아이콘 이미지 의존 없이 — PlaceMapInner 패턴) */
 function pillIcon(name: string, medianScore: number | null, grade: RiskLevel | null) {
   const bg = grade ? GRADE_HEX[grade] : NO_DATA_HEX;
@@ -94,11 +104,13 @@ export default function RegionRiskMapInner({
         );
       })}
 
-      {/* 시군명+점수 알약 마커 (폴리곤 위) */}
-      {regions.map((region) => (
+      {/* 시군명+점수 알약 마커 (폴리곤 위) — 겹치는 라벨은 오프셋 적용 */}
+      {regions.map((region) => {
+        const off = LABEL_OFFSET[region.sigunguCode];
+        return (
         <Marker
           key={region.sigunguCode}
-          position={[region.lat, region.lng]}
+          position={[region.lat + (off?.[0] ?? 0), region.lng + (off?.[1] ?? 0)]}
           icon={pillIcon(region.name, region.medianScore, region.grade)}
           title={
             region.grade
@@ -110,7 +122,8 @@ export default function RegionRiskMapInner({
             click: () => onSelectRegion?.(region.sigunguCode),
           }}
         />
-      ))}
+        );
+      })}
     </MapContainer>
   );
 }
