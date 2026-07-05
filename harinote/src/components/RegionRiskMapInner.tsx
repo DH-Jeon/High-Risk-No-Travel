@@ -8,13 +8,25 @@ import { GRADE_LABEL } from "@/lib/safety/types";
 import { GANGWON_GEO, type LatLngTuple } from "@/lib/geo/gangwon";
 import type { RegionRiskMapProps } from "./RegionRiskMap";
 
-/** SafetyScoreBadge의 emerald/amber/red-500 색 체계와 동일한 hex (divIcon은 인라인 스타일만 가능) */
-const GRADE_HEX: Record<RiskLevel, string> = {
-  low: "#10b981", // emerald-500
-  moderate: "#f59e0b", // amber-500
-  high: "#ef4444", // red-500
+/**
+ * 등급별 색상(hue·채도)은 SafetyScoreBadge의 emerald/amber/red 체계와 맞추고,
+ * 같은 등급 안에서 안전점수로 명암(lightness)을 연속 조절한다 (sequential choropleth).
+ * 점수가 높을수록(=더 안전) 진하게 — 오늘 다 같은 등급이어도 강약이 보인다.
+ */
+const GRADE_HSL: Record<RiskLevel, { h: number; s: number }> = {
+  low: { h: 158, s: 64 }, // emerald 계열
+  moderate: { h: 38, s: 90 }, // amber 계열
+  high: { h: 2, s: 78 }, // red 계열
 };
 const NO_DATA_HEX = "#94a3b8"; // slate-400
+
+/** 안전점수 → 등급 hue 안에서의 색. 관광 안전점수 실질 범위(70~100)를 명암으로 편다. */
+function scoreColor(score: number, grade: RiskLevel): string {
+  const { h, s } = GRADE_HSL[grade];
+  const t = Math.max(0, Math.min(1, (score - 70) / 30));
+  const l = 45 - t * 17; // 45%(낮은 점수, 연함) → 28%(높은 점수, 진함)
+  return `hsl(${h} ${s}% ${l}%)`;
+}
 const SELECTED_STROKE = "#0f766e"; // teal-700
 
 /** 마스크 외곽 링 — 강원도 구멍(evenodd)을 뚫어 도 밖을 덮는다 */
@@ -40,7 +52,8 @@ const LABEL_OFFSET: Record<number, [number, number]> = {
 
 /** 시군명 + 중앙값 점수 알약 라벨 (기본 아이콘 이미지 의존 없이 — PlaceMapInner 패턴) */
 function pillIcon(name: string, medianScore: number | null, grade: RiskLevel | null) {
-  const bg = grade ? GRADE_HEX[grade] : NO_DATA_HEX;
+  const bg =
+    medianScore !== null && grade ? scoreColor(medianScore, grade) : NO_DATA_HEX;
   const scoreText = medianScore === null ? "–" : String(medianScore);
   return divIcon({
     className: "",
@@ -82,11 +95,15 @@ export default function RegionRiskMapInner({
         }}
       />
 
-      {/* 시군 choropleth — 등급 색 채움, 클릭 시 선택 */}
+      {/* 시군 choropleth — 안전점수 연속 색조 채움, 클릭 시 선택 */}
       {GANGWON_GEO.regions.map((geo) => {
         const summary = summaryByCode.get(geo.sigunguCode);
         const grade = summary?.grade ?? null;
         const isSelected = selectedCode === geo.sigunguCode;
+        const fill =
+          summary?.medianScore != null && grade
+            ? scoreColor(summary.medianScore, grade)
+            : NO_DATA_HEX;
         return (
           <Polygon
             key={geo.sigunguCode}
@@ -94,8 +111,8 @@ export default function RegionRiskMapInner({
             pathOptions={{
               color: isSelected ? SELECTED_STROKE : "#ffffff",
               weight: isSelected ? 3 : 1.5,
-              fillColor: grade ? GRADE_HEX[grade] : NO_DATA_HEX,
-              fillOpacity: isSelected ? 0.6 : 0.4,
+              fillColor: fill,
+              fillOpacity: isSelected ? 0.7 : 0.5,
             }}
             eventHandlers={{
               click: () => onSelectRegion?.(geo.sigunguCode),
