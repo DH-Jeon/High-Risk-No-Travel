@@ -13,6 +13,7 @@ import type { Place } from "@/lib/tour/types";
 import type { Profile, RiskBreakdown, RiskInput } from "@/lib/safety/types";
 import { computeSafetyScore } from "@/lib/safety/score";
 import { getLiveRiskInput } from "@/lib/risk/live";
+import { applyEnvTypeOverrides } from "@/lib/tour/env-overrides";
 import { gangwonPlaces } from "@/fixtures/tour/gangwon";
 
 export type DataSource = "json" | "mock" | "db" | "live";
@@ -38,6 +39,11 @@ export interface PlaceWithSafety extends Place {
 
 /** 요청 스코프 메모이즈(React cache) — generateMetadata와 페이지 본문의 중복 로드를 1회로 (live 쿼터 보호) */
 const loadPlaces = cache(async (): Promise<Place[]> => {
+  // 소스와 무관하게 envType 데이터 기반 보정을 적용한다 (고지·오지 93곳 → mountain, env-overrides.ts)
+  return applyEnvTypeOverrides(await loadPlacesRaw());
+});
+
+const loadPlacesRaw = async (): Promise<Place[]> => {
   const source = getDataSource();
   if (source === "live") {
     const { fetchGangwonPlaces } = await import("@/lib/tour/client");
@@ -61,7 +67,7 @@ const loadPlaces = cache(async (): Promise<Place[]> => {
     );
     return gangwonPlaces;
   }
-});
+};
 
 function matches(place: Place, query?: PlaceQuery): boolean {
   if (!query) return true;
