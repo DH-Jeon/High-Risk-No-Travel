@@ -14,6 +14,7 @@ import PlaceMap from "@/components/PlaceMap";
 import { GallerySection, ReviewsSection } from "./sections";
 import ProfileChips from "@/components/ProfileChips";
 import RiskBreakdownBar from "@/components/RiskBreakdownBar";
+import RiskTypeBadge from "@/components/RiskTypeBadge";
 import SafetyScoreBadge from "@/components/SafetyScoreBadge";
 import {
   parseProfile,
@@ -97,6 +98,7 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
             <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
               {ENV_TYPE_LABEL[place.envType]}
             </span>
+            <RiskTypeBadge contentId={place.contentId} />
           </div>
           <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
             {place.title}
