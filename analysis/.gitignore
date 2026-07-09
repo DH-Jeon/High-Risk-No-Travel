@@ -1,4 +1,5 @@
 data/accidents/
+data/climate_daily_raw/
 *.parquet
 *.joblib
 __pycache__/
