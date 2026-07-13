@@ -6,6 +6,7 @@
  */
 import type { PlaceEnvType } from "@/lib/tour/types";
 import { fetchPlaceImages } from "@/lib/tour/images";
+import { fetchPlaceOverview } from "@/lib/tour/overview";
 import { fetchBlogReviews } from "@/lib/review/naver-blog";
 import PlaceGallery from "@/components/PlaceGallery";
 import BlogReviews from "@/components/BlogReviews";
@@ -28,6 +29,27 @@ export async function GallerySection({
     ...detailImages.filter((url) => url !== imageUrl),
   ];
   return <PlaceGallery title={title} envType={envType} images={images} />;
+}
+
+/** TourAPI detailCommon2 소개문 — 실시간 조회(24h 캐시), 없으면 섹션 숨김 */
+export async function OverviewSection({
+  contentId,
+  fallback,
+}: {
+  contentId: number;
+  /** 내장 데이터에 소개문이 있으면 조회 실패 시 폴백 */
+  fallback?: string;
+}) {
+  const overview = (await fetchPlaceOverview(contentId)) ?? fallback;
+  if (!overview) return null;
+  return (
+    <section>
+      <h2 className="text-lg font-bold text-slate-900">소개</h2>
+      <p className="mt-2 rounded-xl bg-white p-4 text-sm leading-relaxed text-slate-600 ring-1 ring-slate-200">
+        {overview}
+      </p>
+    </section>
+  );
 }
 
 export async function ReviewsSection({ title }: { title: string }) {
