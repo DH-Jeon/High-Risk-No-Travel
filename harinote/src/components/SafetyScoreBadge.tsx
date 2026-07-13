@@ -30,9 +30,16 @@ interface Props {
   grade: RiskLevel;
   /** sm: 리스트 카드용 알약형, lg: 상세 페이지용 대형 */
   size?: "sm" | "lg";
+  /** lg 전용 캡션 (기본: "오늘의 안전 점수" — 날짜 모드에서 교체) */
+  label?: string;
 }
 
-export default function SafetyScoreBadge({ score, grade, size = "sm" }: Props) {
+export default function SafetyScoreBadge({
+  score,
+  grade,
+  size = "sm",
+  label = "오늘의 안전 점수",
+}: Props) {
   const s = GRADE_STYLE[grade];
 
   if (size === "lg") {
@@ -47,9 +54,7 @@ export default function SafetyScoreBadge({ score, grade, size = "sm" }: Props) {
           <span className="text-xs font-medium text-slate-400">/ 100점</span>
         </div>
         <div className="min-w-0">
-          <p className="text-xs font-medium text-slate-500">
-            오늘의 안전 점수
-          </p>
+          <p className="text-xs font-medium text-slate-500">{label}</p>
           <p className={`flex items-center gap-1.5 font-bold ${s.text}`}>
             <span className={`h-2.5 w-2.5 rounded-full ${s.dot}`} />
             {GRADE_LABEL[grade]}
