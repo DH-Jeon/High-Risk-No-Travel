@@ -2,6 +2,7 @@ import Link from "next/link";
 import { buildQuery } from "@/components/search-params";
 import { formatKoreanDate, todayISOSeoul } from "@/lib/date";
 import LinkLabel from "@/components/LinkLabel";
+import DatePickerNav from "@/components/DatePickerNav";
 
 interface Props {
   /** 날짜 쿼리를 바꿔 이동할 기준 경로 (예: /places/126273) */
@@ -20,7 +21,7 @@ function isoAfter(days: number): string {
 }
 
 /**
- * 여행 날짜 선택 — [오늘] 리셋 + 달력(GET 폼).
+ * 여행 날짜 선택 — [오늘] 리셋 + 달력(고르는 즉시 반영).
  * D+1~3은 단기예보, 그 이후는 30년 기후 계절 모드로 계산된다.
  */
 export default function DateChips({ basePath, current, extraParams = {} }: Props) {
@@ -38,34 +39,19 @@ export default function DateChips({ basePath, current, extraParams = {} }: Props
         <LinkLabel>오늘</LinkLabel>
       </Link>
 
-      {/* 여행 날짜 선택 (GET 폼 — date 쿼리로 이동) */}
-      <form action={basePath} method="get" className="inline-flex items-center gap-1.5">
-        {Object.entries(extraParams).map(([k, v]) =>
-          v !== undefined && v !== "" ? (
-            <input key={k} type="hidden" name={k} value={String(v)} />
-          ) : null,
-        )}
-        <input
-          type="date"
-          name="date"
-          defaultValue={current ?? todayISOSeoul()}
-          min={todayISOSeoul()}
-          max={isoAfter(366)}
-          aria-label="여행 날짜 선택"
-          className="rounded-full bg-white px-3 py-1.5 text-sm font-semibold text-slate-600 ring-1 ring-slate-200"
-        />
-        <button
-          type="submit"
-          className="rounded-full bg-white px-3 py-1.5 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-sky-50 hover:text-sky-700"
-        >
-          보기
-        </button>
-        {current && (
-          <span className="text-xs font-semibold text-sky-700">
-            {formatKoreanDate(current)} 기준
-          </span>
-        )}
-      </form>
+      <DatePickerNav
+        basePath={basePath}
+        current={current}
+        extraParams={extraParams}
+        todayISO={todayISOSeoul()}
+        maxISO={isoAfter(366)}
+      />
+
+      {current && (
+        <span className="text-xs font-semibold text-sky-700">
+          {formatKoreanDate(current)} 기준
+        </span>
+      )}
     </div>
   );
 }
