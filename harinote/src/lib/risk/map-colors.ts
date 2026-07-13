@@ -12,7 +12,7 @@ export const GRADE_HSL: Record<RiskLevel, { h: number; s: number }> = {
 };
 
 /**
- * 등급별 점수 구간 — 이 범위 안에서 명암을 편다.
+ * 등급별 점수 구간 — 이 범위 안에서 색을 편다.
  * gradeForScore(weights.ts)의 컷(70 이상 low, 40~69 moderate, 40 미만 high)과 일치.
  */
 const GRADE_SCORE_RANGE: Record<RiskLevel, [number, number]> = {
@@ -21,14 +21,27 @@ const GRADE_SCORE_RANGE: Record<RiskLevel, [number, number]> = {
   high: [0, 40],
 };
 
+/**
+ * 등급 안에서 색상(hue)을 함께 편다 — 명암만 바꾸면 좋은 날(전 시군 85~95점)에
+ * 지도가 단색 초록으로 보여 시군 간 비교가 불가능했다.
+ * low: 황록(70점) → 진초록(100점) / moderate: 주황 → 앰버 / high: 진빨강 → 다홍
+ */
+const GRADE_HUE_RANGE: Record<RiskLevel, [number, number]> = {
+  low: [72, 158],
+  moderate: [22, 45],
+  high: [2, 16],
+};
+
 export const NO_DATA_HEX = "#94a3b8"; // slate-400
 
-/** 안전점수 → 등급 hue 안에서의 색. 같은 등급 안에서 점수 높을수록 진하게. */
+/** 안전점수 → 색. 같은 등급 안에서 점수가 높을수록 색상·명암이 함께 좋아진다. */
 export function scoreColor(score: number, grade: RiskLevel): string {
-  const { h, s } = GRADE_HSL[grade];
+  const { s } = GRADE_HSL[grade];
   const [lo, hi] = GRADE_SCORE_RANGE[grade];
+  const [hLo, hHi] = GRADE_HUE_RANGE[grade];
   const t = Math.max(0, Math.min(1, (score - lo) / (hi - lo)));
-  const l = 46 - t * 18; // 46%(구간 하한, 연함) → 28%(상한, 진함)
+  const h = Math.round(hLo + t * (hHi - hLo));
+  const l = 46 - t * 14; // 46%(구간 하한, 연함) → 32%(상한, 진함)
   return `hsl(${h} ${s}% ${l}%)`;
 }
 
