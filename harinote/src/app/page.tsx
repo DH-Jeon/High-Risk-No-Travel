@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { getRegionSummaries } from "@/lib/risk/region-summary";
+import FestivalSection from "@/components/FestivalSection";
 import { hasLiveRiskKeys } from "@/lib/risk/live";
 import { medicalDataSource } from "@/lib/risk/medical";
 import { formatKoreanDate } from "@/lib/date";
@@ -63,12 +65,20 @@ export default async function Home({ searchParams }: Props) {
               <p className="mb-1.5 text-sm font-semibold text-slate-600">
                 누구와 함께 가시나요?
               </p>
-              <ProfileChips
-                basePath="/"
-                current={profile}
-                extraParams={{ date }}
-                exclude={["own_car"]}
-              />
+              <div className="flex flex-wrap items-center gap-2">
+                <ProfileChips
+                  basePath="/"
+                  current={profile}
+                  extraParams={{ date }}
+                  exclude={["own_car"]}
+                />
+                <Link
+                  href={`/places${buildQuery({ pet: "1", profile: profileParam(profile), date })}`}
+                  className="inline-flex items-center gap-1 rounded-full bg-white px-3.5 py-1.5 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-amber-50 hover:text-amber-700"
+                >
+                  🐶 반려동물과 함께
+                </Link>
+              </div>
             </div>
           </div>
 
@@ -96,6 +106,11 @@ export default async function Home({ searchParams }: Props) {
             extraQuery={{ profile: profileParam(profile), date }}
           />
         </section>
+
+        {/* 축제·행사 — TourAPI 실시간, 등록 없으면 숨김 (스트리밍) */}
+        <Suspense fallback={null}>
+          <FestivalSection dateISO={date} profile={profile} />
+        </Suspense>
 
         {/* 출처·참고 */}
         <footer className="mt-8 border-t border-slate-200 pt-3 text-xs leading-relaxed text-slate-400">

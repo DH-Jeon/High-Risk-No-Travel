@@ -21,11 +21,13 @@ import {
   parseContentTypeId,
   parseDate,
   parsePage,
+  parsePet,
   parseProfile,
   parseSigungu,
   profileParam,
   type SearchParamValue,
 } from "@/components/search-params";
+import { isPetFriendly } from "@/lib/tour/pet-friendly";
 import { SIGUNGU_SEATS } from "@/lib/risk/regions";
 
 const PAGE_SIZE = 24;
@@ -56,6 +58,9 @@ export default async function PlacesPage({ searchParams }: Props) {
 
   // 날짜 모드 (홈 온보딩 "언제 가시나요?" 또는 DateChips) — 그날 기준 점수로 목록 구성
   const date = parseDate(sp.date);
+  // 반려동물 동반 필터 (TourAPI detailPetTour2 수집분)
+  const pet = parsePet(sp.pet);
+  const petParam = pet ? "1" : undefined;
 
   // 기본 정렬 = 안전점수 높은 순 — "어디가 안전한가"가 서비스의 축이므로
   // 데이터 순서(사실상 가나다)가 아니라 점수가 목록의 기준이어야 한다.
@@ -67,6 +72,7 @@ export default async function PlacesPage({ searchParams }: Props) {
     .filter((p) =>
       matchesPlaceQuery(p, { q: q || undefined, contentTypeId, sigunguCode }),
     )
+    .filter((p) => !pet || isPetFriendly(p.contentId))
     .sort((a, b) => b.safety.score - a.safety.score);
 
   // 서버 사이드 페이지네이션 — 24건/페이지.
@@ -82,6 +88,7 @@ export default async function PlacesPage({ searchParams }: Props) {
       sigungu: sigunguCode,
       profile: profileParam(profile),
       date,
+      pet: petParam,
       page: p === 1 ? undefined : p,
     })}`;
 
@@ -103,6 +110,7 @@ export default async function PlacesPage({ searchParams }: Props) {
               sigungu: sigunguCode,
               profile: profileParam(profile),
               date,
+              pet: petParam,
             })}`;
             return (
               <Link
@@ -130,20 +138,42 @@ export default async function PlacesPage({ searchParams }: Props) {
             type: contentTypeId,
             sigungu: sigunguCode,
             profile: profileParam(profile),
+            pet: petParam,
           }}
         />
 
-        {/* 동행 프로필 전환 */}
-        <ProfileChips
-          basePath="/places"
-          current={profile}
-          extraParams={{
-            q: q || undefined,
-            type: contentTypeId,
-            sigungu: sigunguCode,
-            date,
-          }}
-        />
+        {/* 동행 프로필 전환 + 반려동물 필터 */}
+        <div className="flex flex-wrap items-center gap-2">
+          <ProfileChips
+            basePath="/places"
+            current={profile}
+            extraParams={{
+              q: q || undefined,
+              type: contentTypeId,
+              sigungu: sigunguCode,
+              date,
+              pet: petParam,
+            }}
+          />
+          <Link
+            href={`/places${buildQuery({
+              q: q || undefined,
+              type: contentTypeId,
+              sigungu: sigunguCode,
+              profile: profileParam(profile),
+              date,
+              pet: pet ? undefined : "1",
+            })}`}
+            aria-pressed={pet}
+            className={`inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+              pet
+                ? "bg-amber-500 text-white shadow-sm"
+                : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-amber-50 hover:text-amber-700"
+            }`}
+          >
+            🐶 반려동물 동반
+          </Link>
+        </div>
       </div>
 
       <p className="mt-6 flex flex-wrap items-center gap-2 text-sm text-slate-500">
@@ -183,6 +213,7 @@ export default async function PlacesPage({ searchParams }: Props) {
               type: contentTypeId,
               profile: profileParam(profile),
               date,
+              pet: petParam,
             })}`}
             className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-200"
           >
