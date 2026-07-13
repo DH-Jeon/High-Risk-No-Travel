@@ -19,13 +19,15 @@ const ENV_PLACEHOLDER: Record<PlaceEnvType, { emoji: string; bg: string }> = {
 interface Props {
   place: PlaceWithSafety;
   profile: Profile;
+  /** 선택된 여행 날짜 (YYYY-MM-DD) — 링크에 유지 */
+  date?: string;
   /** 카드 하단 추가 정보 (예: 대체지 추천의 거리·점수 비교) */
   footer?: React.ReactNode;
 }
 
-export default function PlaceCard({ place, profile, footer }: Props) {
+export default function PlaceCard({ place, profile, date, footer }: Props) {
   const ph = ENV_PLACEHOLDER[place.envType];
-  const href = `/places/${place.contentId}${buildQuery({ profile: profileParam(profile) })}`;
+  const href = `/places/${place.contentId}${buildQuery({ profile: profileParam(profile), date })}`;
 
   return (
     <Link
