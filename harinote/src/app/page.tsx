@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { getRegionSummaries } from "@/lib/risk/region-summary";
+import FestivalSection from "@/components/FestivalSection";
 import { hasLiveRiskKeys } from "@/lib/risk/live";
 import { medicalDataSource } from "@/lib/risk/medical";
 import { formatKoreanDate } from "@/lib/date";
@@ -104,6 +106,11 @@ export default async function Home({ searchParams }: Props) {
             extraQuery={{ profile: profileParam(profile), date }}
           />
         </section>
+
+        {/* 축제·행사 — TourAPI 실시간, 등록 없으면 숨김 (스트리밍) */}
+        <Suspense fallback={null}>
+          <FestivalSection dateISO={date} profile={profile} />
+        </Suspense>
 
         {/* 출처·참고 */}
         <footer className="mt-8 border-t border-slate-200 pt-3 text-xs leading-relaxed text-slate-400">
