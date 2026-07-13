@@ -140,4 +140,11 @@ describe("summarizeDaily", () => {
     ];
     expect(summarizeDaily(items, "20260703").tempC).toBe(30);
   });
+
+  it("미래 날짜 조회(fallback 끔): 해당 날짜가 없으면 빈 요약 — 계절모드 폴백 신호", () => {
+    const items = [item("TMX", "30.0", "20260704", "1500")];
+    expect(summarizeDaily(items, "20260707", false)).toEqual({});
+    // 해당 날짜가 있으면 정상 요약
+    expect(summarizeDaily(items, "20260704", false).tempC).toBe(30);
+  });
 });
