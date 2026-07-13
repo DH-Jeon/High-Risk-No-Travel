@@ -12,7 +12,9 @@ import { cache } from "react";
 import type { Place } from "@/lib/tour/types";
 import type { Profile, RiskBreakdown, RiskInput } from "@/lib/safety/types";
 import { computeSafetyScore } from "@/lib/safety/score";
-import { getLiveRiskInput } from "@/lib/risk/live";
+import { getForecastRiskInput, getLiveRiskInput } from "@/lib/risk/live";
+import { seasonalRange, type SeasonalRange } from "@/lib/risk/seasonal";
+import { dayOffsetSeoul, monthOfISO, toKmaDate } from "@/lib/date";
 import { applyEnvTypeOverrides } from "@/lib/tour/env-overrides";
 import { gangwonPlaces } from "@/fixtures/tour/gangwon";
 
@@ -89,6 +91,11 @@ export async function getPlaces(query?: PlaceQuery): Promise<Place[]> {
   return places.filter((p) => matches(p, query));
 }
 
+/** 목록 페이지가 날짜별 전량 캐시 결과를 직접 필터링할 때 사용 */
+export function matchesPlaceQuery(place: Place, query?: PlaceQuery): boolean {
+  return matches(place, query);
+}
+
 export async function getPlace(contentId: number): Promise<Place | null> {
   const places = await loadPlaces();
   return places.find((p) => p.contentId === contentId) ?? null;
@@ -98,7 +105,7 @@ export async function getPlace(contentId: number): Promise<Place | null> {
  * 관광지의 위험 계산 입력값 — 항상 live 경로를 사용한다.
  * getLiveRiskInput은 소스별 폴백을 내장하므로 키가 없어도 안전하며,
  * 응급의료 거리(내장 병원 좌표 실계산)는 키·네트워크 없이도 실값이 나온다.
- * 남은 mock: 대피소(shelterKm), 산불위험(활용신청 승인 전까지).
+ * 남은 mock: 산불위험(활용신청 승인 전까지). 대피소는 데이터 확보 전까지 축 비활성.
  */
 export async function getRiskInput(place: Place): Promise<RiskInput> {
   return getLiveRiskInput(place);
@@ -164,3 +171,84 @@ export async function getPlaceWithSafety(
   const all = await getAllWithSafety(profile);
   return all.find((p) => p.contentId === contentId) ?? null;
 }
+
+// ── 날짜 기반 점수 ("그날 가도 될까") ──────────────────────────────
+// D+1~3: 단기예보(forecast) — 해당 날짜 예보가 응답에 없으면 계절 모드로 폴백
+// D+4~ : 계절 모드(seasonal) — 30년 분위수 시나리오의 점수 "범위"
+
+export type DateSafetyMode = "forecast" | "seasonal";
+
+export interface DateSafety {
+  mode: DateSafetyMode;
+  dateISO: string;
+  /** 오늘로부터 며칠 뒤인지 */
+  dayOffset: number;
+  /**
+   * 대표 점수 — forecast: 그날 예보 점수 / seasonal: 통상일 점수.
+   * 랭킹·대체지 비교는 이 값 기준.
+   */
+  breakdown: RiskBreakdown;
+  /** seasonal 모드에서만 — 통상일/궂은날 범위 (주의 요인 안내는 bad 기준) */
+  seasonal?: SeasonalRange;
+}
+
+/**
+ * 특정 미래 날짜의 안전 점수. 계절 데이터까지 없으면 null (호출부는 오늘 모드 유지).
+ */
+export async function getDateSafety(
+  place: Place,
+  profile: Profile,
+  dateISO: string,
+): Promise<DateSafety | null> {
+  const dayOffset = dayOffsetSeoul(dateISO);
+  if (dayOffset >= 1 && dayOffset <= 3) {
+    const input = await getForecastRiskInput(place, toKmaDate(dateISO));
+    if (input) {
+      return {
+        mode: "forecast",
+        dateISO,
+        dayOffset,
+        breakdown: computeSafetyScore(input, place, profile),
+      };
+    }
+  }
+  const r = seasonalRange(place, monthOfISO(dateISO), profile);
+  if (!r) return null;
+  return { mode: "seasonal", dateISO, dayOffset, breakdown: r.typical, seasonal: r };
+}
+
+/** 날짜별 후보 목록 캐시 — 날짜가 다양할 수 있어 개수를 제한한다 */
+const DATE_CACHE_MAX_KEYS = 12;
+const datePlacesCacheStore = new Map<
+  string,
+  { data: PlaceWithSafety[]; expiresAt: number }
+>();
+
+/**
+ * 특정 날짜 기준 관광지 + 안전점수 목록 — 대체지·코스 추천이 대상 관광지와
+ * 같은 날짜 기준으로 비교되도록 한다. 날짜 점수를 못 만든 곳은 오늘 점수 유지.
+ */
+export const getPlacesWithSafetyOnDate = cache(
+  async (profile: Profile, dateISO: string): Promise<PlaceWithSafety[]> => {
+    const key = `${profile}:${dateISO}`;
+    const hit = datePlacesCacheStore.get(key);
+    if (hit && hit.expiresAt > Date.now()) return hit.data;
+
+    const base = await getAllWithSafety(profile);
+    const data = await Promise.all(
+      base.map(async (p) => {
+        const ds = await getDateSafety(p, profile, dateISO);
+        return ds ? { ...p, safety: ds.breakdown } : p;
+      }),
+    );
+
+    if (datePlacesCacheStore.size >= DATE_CACHE_MAX_KEYS) {
+      datePlacesCacheStore.clear();
+    }
+    datePlacesCacheStore.set(key, {
+      data,
+      expiresAt: Date.now() + PLACES_CACHE_TTL_MS,
+    });
+    return data;
+  },
+);

@@ -21,19 +21,25 @@ export const HEAT = {
   MAX_POINTS: 25,
 } as const;
 
-/** 최고기온(℃) → 폭염 기본 감점. 주의보(33℃)에서 중간, 경보(35℃)부터 상한 근접. */
-export function heatPoints(tempC: number): number {
-  if (tempC < HEAT.RAMP_START_C) return 0;
-  if (tempC < HEAT.ADVISORY_C) {
+/**
+ * 최고기온(℃) → 폭염 기본 감점. 주의보(33℃)에서 중간, 경보(35℃)부터 상한 근접.
+ * shiftC(민감층 임계값 하향): 기상청 폭염 영향예보가 취약계층(어린이·노약자)을
+ * 일반인보다 낮은 체감온도에서 위험 단계에 진입시키는 구조를 차용 —
+ * 곡선 전체를 shiftC만큼 왼쪽으로 이동시킨다 (= tempC + shiftC 지점에서 평가).
+ */
+export function heatPoints(tempC: number, shiftC = 0): number {
+  const t = tempC + shiftC;
+  if (t < HEAT.RAMP_START_C) return 0;
+  if (t < HEAT.ADVISORY_C) {
     // 28~33℃: 0 → 8점 완만 상승 (저감점)
-    return ((tempC - HEAT.RAMP_START_C) / (HEAT.ADVISORY_C - HEAT.RAMP_START_C)) * 8;
+    return ((t - HEAT.RAMP_START_C) / (HEAT.ADVISORY_C - HEAT.RAMP_START_C)) * 8;
   }
-  if (tempC < HEAT.WARNING_C) {
+  if (t < HEAT.WARNING_C) {
     // 폭염주의보 구간 33~35℃: 12 → 22점
-    return 12 + (tempC - HEAT.ADVISORY_C) * 5;
+    return 12 + (t - HEAT.ADVISORY_C) * 5;
   }
   // 폭염경보 35℃+: 22점에서 시작해 상한 25점까지
-  return Math.min(HEAT.MAX_POINTS, 22 + (tempC - HEAT.WARNING_C) * 1.5);
+  return Math.min(HEAT.MAX_POINTS, 22 + (t - HEAT.WARNING_C) * 1.5);
 }
 
 // ─────────────────────────────────────────────
@@ -93,11 +99,15 @@ export const PM25_GRADE_LABEL = {
   very_bad: "매우나쁨",
 } as const;
 
-/** PM2.5(㎍/㎥) → 미세먼지 기본 감점 */
-export function pmPoints(pm25: number): number {
+/**
+ * PM2.5(㎍/㎥) → 미세먼지 기본 감점.
+ * sensitive(민감군 곡선): EPA AQI의 "민감군에게 나쁨(USG)" 구조 차용 —
+ * 같은 농도에서 민감군(아이 동반)은 한 단계 이른 감점 (보통 3→5, 나쁨 8→12).
+ */
+export function pmPoints(pm25: number, sensitive = false): number {
   if (pm25 <= PM25.GOOD_MAX) return 0;
-  if (pm25 <= PM25.MODERATE_MAX) return 3;
-  if (pm25 <= PM25.BAD_MAX) return 8;
+  if (pm25 <= PM25.MODERATE_MAX) return sensitive ? 5 : 3;
+  if (pm25 <= PM25.BAD_MAX) return sensitive ? 12 : 8;
   return PM25.MAX_POINTS;
 }
 
@@ -208,8 +218,9 @@ export interface EnvWeight {
 }
 
 export const ENV_WEIGHT: Record<PlaceEnvType, EnvWeight> = {
-  /** 실내는 기상 영향이 낮다 */
-  indoor: { heat: 0.3, rain: 0.3, wind: 0.3, pm: 0.3, fire: 1.0 },
+  /** 실내는 기상 영향이 낮다. 산불도 직접 노출이 낮아 동일하게 0.3 —
+   * 도심 상가 음식점이 시군 산불 단계를 그대로 감점받는 왜곡 방지 */
+  indoor: { heat: 0.3, rain: 0.3, wind: 0.3, pm: 0.3, fire: 0.3 },
   /** 계곡·수변: 호우 시 급류·불어남 위험 */
   outdoor_water: { heat: 1.0, rain: 1.5, wind: 1.0, pm: 1.0, fire: 1.0 },
   /** 산악: 강풍·산불 위험 가중 */
@@ -221,22 +232,34 @@ export const ENV_WEIGHT: Record<PlaceEnvType, EnvWeight> = {
 
 // ─────────────────────────────────────────────
 // 프로필 가중 (제안서 약속)
+//
+// 민감층(아이·부모님)의 기상 민감도는 배율(×1.3) 대신 "임계값 하향"으로 반영한다.
+// 근거: 표준 위험지수들이 모두 이 구조를 쓴다 —
+//  · 기상청 폭염 영향예보: 취약계층(어린이·노약자)은 일반인(주의보 33℃)보다 낮은
+//    체감온도(31℃)부터 위험 단계 진입
+//  · 미국 NWS HeatRisk: 민감군은 낮은 단계(Level 1~2)에서 먼저 영향
+//  · 미국 EPA AQI: 101~150 = "민감군에게 나쁨(USG)" 전용 구간
+// 배율 방식은 감점이 0인 온화한 날에 프로필 간 차이가 전혀 없다는 결함이 있었다.
 // ─────────────────────────────────────────────
 export interface ProfileWeight {
   heat: number;
   pm: number;
   medical: number;
   road: number;
+  /** 폭염 임계값 하향 ℃ (민감층 2℃ — 영향예보 취약계층 관심단계 31℃ 근거) */
+  heatShiftC: number;
+  /** 미세먼지 민감군 곡선 사용 여부 (AQI USG 구조) */
+  pmSensitive: boolean;
 }
 
 export const PROFILE_WEIGHT: Record<Profile, ProfileWeight> = {
-  default: { heat: 1.0, pm: 1.0, medical: 1.0, road: 1.0 },
-  /** 아이 동반: 폭염·미세먼지 민감 */
-  with_kids: { heat: 1.3, pm: 1.3, medical: 1.0, road: 1.0 },
-  /** 부모님 동반: 응급의료 접근성 민감 */
-  with_seniors: { heat: 1.0, pm: 1.0, medical: 1.5, road: 1.0 },
+  default: { heat: 1.0, pm: 1.0, medical: 1.0, road: 1.0, heatShiftC: 0, pmSensitive: false },
+  /** 아이 동반: 폭염 임계값 2℃ 하향 + 미세먼지 민감군 곡선 */
+  with_kids: { heat: 1.0, pm: 1.0, medical: 1.0, road: 1.0, heatShiftC: 2, pmSensitive: true },
+  /** 부모님 동반: 응급의료 ×1.5 + 폭염 임계값 2℃ 하향 (노약자도 폭염 취약계층) */
+  with_seniors: { heat: 1.0, pm: 1.0, medical: 1.5, road: 1.0, heatShiftC: 2, pmSensitive: false },
   /** 자차 이동: 도로 위험 민감 */
-  own_car: { heat: 1.0, pm: 1.0, medical: 1.0, road: 1.5 },
+  own_car: { heat: 1.0, pm: 1.0, medical: 1.0, road: 1.5, heatShiftC: 0, pmSensitive: false },
 };
 
 // ─────────────────────────────────────────────
