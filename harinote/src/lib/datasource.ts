@@ -105,7 +105,7 @@ export async function getPlace(contentId: number): Promise<Place | null> {
  * 관광지의 위험 계산 입력값 — 항상 live 경로를 사용한다.
  * getLiveRiskInput은 소스별 폴백을 내장하므로 키가 없어도 안전하며,
  * 응급의료 거리(내장 병원 좌표 실계산)는 키·네트워크 없이도 실값이 나온다.
- * 남은 mock: 대피소(shelterKm), 산불위험(활용신청 승인 전까지).
+ * 남은 mock: 산불위험(활용신청 승인 전까지). 대피소는 데이터 확보 전까지 축 비활성.
  */
 export async function getRiskInput(place: Place): Promise<RiskInput> {
   return getLiveRiskInput(place);

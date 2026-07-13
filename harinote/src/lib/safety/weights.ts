@@ -218,8 +218,9 @@ export interface EnvWeight {
 }
 
 export const ENV_WEIGHT: Record<PlaceEnvType, EnvWeight> = {
-  /** 실내는 기상 영향이 낮다 */
-  indoor: { heat: 0.3, rain: 0.3, wind: 0.3, pm: 0.3, fire: 1.0 },
+  /** 실내는 기상 영향이 낮다. 산불도 직접 노출이 낮아 동일하게 0.3 —
+   * 도심 상가 음식점이 시군 산불 단계를 그대로 감점받는 왜곡 방지 */
+  indoor: { heat: 0.3, rain: 0.3, wind: 0.3, pm: 0.3, fire: 0.3 },
   /** 계곡·수변: 호우 시 급류·불어남 위험 */
   outdoor_water: { heat: 1.0, rain: 1.5, wind: 1.0, pm: 1.0, fire: 1.0 },
   /** 산악: 강풍·산불 위험 가중 */
