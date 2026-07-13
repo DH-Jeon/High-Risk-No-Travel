@@ -17,6 +17,8 @@ interface Props {
   current: Profile;
   /** profile 외에 유지할 쿼리 파라미터 */
   extraParams?: Record<string, string | number | undefined>;
+  /** 숨길 프로필 (예: 홈 온보딩은 데이터 미연동인 자차 제외) */
+  exclude?: Profile[];
 }
 
 /** 링크 기반 동행 프로필 전환 칩 — 프로필별로 점수가 달라짐을 보여준다 */
@@ -24,10 +26,13 @@ export default function ProfileChips({
   basePath,
   current,
   extraParams = {},
+  exclude = [],
 }: Props) {
   return (
     <div className="flex flex-wrap gap-2">
-      {(Object.keys(PROFILE_LABEL) as Profile[]).map((p) => {
+      {(Object.keys(PROFILE_LABEL) as Profile[])
+        .filter((p) => !exclude.includes(p))
+        .map((p) => {
         const active = p === current;
         const href = `${basePath}${buildQuery({ ...extraParams, profile: profileParam(p) })}`;
         return (

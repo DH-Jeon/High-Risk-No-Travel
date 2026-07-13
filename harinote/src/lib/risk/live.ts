@@ -113,3 +113,29 @@ export async function getLiveRiskInput(
 
   return input;
 }
+
+/**
+ * 미래 날짜(D+1~3) 예보 기반 입력 조립.
+ * 기상만 targetDate 예보로 교체하고 pm25·산불·응급의료는 오늘 기준을 유지한다
+ * (미래 예보가 없는 소스 — UI에서 "현재 기준" 각주로 안내).
+ * 해당 날짜 예보가 응답에 없으면 null — 호출부는 계절모드로 폴백한다.
+ */
+export async function getForecastRiskInput(
+  place: Pick<Place, "contentId" | "envType" | "sigunguCode" | "lat" | "lng">,
+  targetKmaDate: string,
+): Promise<RiskInput | null> {
+  const { nx, ny } = gridPointFor(place);
+  const w = await fetchKmaDailyWeather(nx, ny, targetKmaDate).catch(() => undefined);
+  const hasCore =
+    w !== undefined &&
+    (w.tempC !== undefined || w.rainProbPct !== undefined || w.windMs !== undefined);
+  if (!hasCore) return null;
+
+  const input = await getLiveRiskInput(place);
+  if (w.tempC !== undefined) input.tempC = w.tempC;
+  if (w.rainProbPct !== undefined) input.rainProbPct = w.rainProbPct;
+  if (w.windMs !== undefined) input.windMs = w.windMs;
+  if (w.rainMm !== undefined) input.rainMm = w.rainMm;
+  else delete input.rainMm;
+  return input;
+}

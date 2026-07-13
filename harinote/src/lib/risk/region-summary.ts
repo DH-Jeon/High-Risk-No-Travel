@@ -8,10 +8,14 @@
  * getRegionSummaries는 datasource(서버 전용)를 호출하므로 이 모듈도 서버 전용.
  * 순수 함수 summarizeRegions는 테스트에서 직접 호출한다.
  */
-import type { RiskLevel } from "@/lib/safety/types";
+import type { Profile, RiskLevel } from "@/lib/safety/types";
 import { gradeForScore } from "@/lib/safety/weights";
 import { SIGUNGU_SEATS } from "@/lib/risk/regions";
-import { getPlacesWithSafety, type PlaceWithSafety } from "@/lib/datasource";
+import {
+  getPlacesWithSafety,
+  getPlacesWithSafetyOnDate,
+  type PlaceWithSafety,
+} from "@/lib/datasource";
 
 export interface RegionSummary {
   sigunguCode: number;
@@ -66,7 +70,16 @@ export function summarizeRegions(places: PlaceWithSafety[]): RegionSummary[] {
     });
 }
 
-/** 전체 관광지의 오늘 점수를 시군별로 요약 — 서버 전용 */
-export async function getRegionSummaries(): Promise<RegionSummary[]> {
-  return summarizeRegions(await getPlacesWithSafety());
+/**
+ * 전체 관광지의 점수를 시군별로 요약 — 서버 전용.
+ * profile·dateISO를 주면 그 조건의 점수로 지도가 반응한다 (홈 온보딩).
+ */
+export async function getRegionSummaries(
+  profile: Profile = "default",
+  dateISO?: string,
+): Promise<RegionSummary[]> {
+  const places = dateISO
+    ? await getPlacesWithSafetyOnDate(profile, dateISO)
+    : await getPlacesWithSafety(undefined, profile);
+  return summarizeRegions(places);
 }

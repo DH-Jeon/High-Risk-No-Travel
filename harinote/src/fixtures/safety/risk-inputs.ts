@@ -99,10 +99,9 @@ export function mockRiskInputFor(
     input.windMs = round1(input.windMs + 3); // 해안 해풍↑
   }
 
-  // 대피소 거리: 약 70%만 데이터 보유 (없으면 점수 엔진이 0점 처리 — 불이익 금지)
-  if (r(10) < 0.7) {
-    input.shelterKm = round1(0.4 + r(11) * 4); // 0.4~4.4km
-  }
+  // 대피소(shelterKm)는 생성하지 않는다 — 행안부 실데이터 미확보 상태에서
+  // mock 거리를 표시하면 사용자를 오해시킴 (2026-07-13 축 비활성 결정).
+  // 엔진의 처리 능력(shelterKm 입력 시 감점)은 유지 — 데이터 확보 시 여기만 복원.
 
   return input;
 }

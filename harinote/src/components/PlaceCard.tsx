@@ -6,6 +6,7 @@ import { CONTENT_TYPE_LABEL, ENV_TYPE_LABEL } from "@/lib/tour/types";
 import type { Profile } from "@/lib/safety/types";
 import SafetyScoreBadge from "@/components/SafetyScoreBadge";
 import { buildQuery, profileParam } from "@/components/search-params";
+import { cardSummary } from "@/lib/tour/overviews";
 
 /** imageUrl 없는 관광지의 플레이스홀더 — 환경 유형별 이모지·그라데이션 */
 const ENV_PLACEHOLDER: Record<PlaceEnvType, { emoji: string; bg: string }> = {
@@ -19,13 +20,15 @@ const ENV_PLACEHOLDER: Record<PlaceEnvType, { emoji: string; bg: string }> = {
 interface Props {
   place: PlaceWithSafety;
   profile: Profile;
+  /** 선택된 여행 날짜 (YYYY-MM-DD) — 링크에 유지 */
+  date?: string;
   /** 카드 하단 추가 정보 (예: 대체지 추천의 거리·점수 비교) */
   footer?: React.ReactNode;
 }
 
-export default function PlaceCard({ place, profile, footer }: Props) {
+export default function PlaceCard({ place, profile, date, footer }: Props) {
   const ph = ENV_PLACEHOLDER[place.envType];
-  const href = `/places/${place.contentId}${buildQuery({ profile: profileParam(profile) })}`;
+  const href = `/places/${place.contentId}${buildQuery({ profile: profileParam(profile), date })}`;
 
   return (
     <Link
@@ -65,6 +68,14 @@ export default function PlaceCard({ place, profile, footer }: Props) {
           {place.title}
         </h3>
         <p className="truncate text-sm text-slate-500">{place.addr}</p>
+        {(() => {
+          const summary = cardSummary(place.contentId);
+          return summary ? (
+            <p className="line-clamp-2 text-xs leading-relaxed text-slate-500">
+              {summary}
+            </p>
+          ) : null;
+        })()}
         <SafetyScoreBadge score={place.safety.score} grade={place.safety.grade} />
         {footer}
       </div>
