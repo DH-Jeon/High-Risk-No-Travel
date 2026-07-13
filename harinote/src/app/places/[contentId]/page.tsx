@@ -18,7 +18,7 @@ import CourseTimeline from "@/components/CourseTimeline";
 import PlaceCard from "@/components/PlaceCard";
 import PlaceGallery from "@/components/PlaceGallery";
 import PlaceMap from "@/components/PlaceMap";
-import { GallerySection, ReviewsSection } from "./sections";
+import { GallerySection, OverviewSection, ReviewsSection } from "./sections";
 import ProfileChips from "@/components/ProfileChips";
 import RiskBreakdownBar from "@/components/RiskBreakdownBar";
 import RiskTypeBadge from "@/components/RiskTypeBadge";
@@ -176,12 +176,22 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
                 현재값 기준입니다.
               </p>
             )}
-            <Link
-              href={`/places/${place.contentId}/report${buildQuery({ profile: profileParam(profile) })}`}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-4 py-1.5 text-sm font-semibold text-teal-700 ring-1 ring-teal-200 transition-colors hover:bg-teal-100"
-            >
-              <span aria-hidden="true">📋</span> 출발 전 체크 리포트
-            </Link>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link
+                href={`/places/${place.contentId}/report${buildQuery({ profile: profileParam(profile) })}`}
+                className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-4 py-1.5 text-sm font-semibold text-teal-700 ring-1 ring-teal-200 transition-colors hover:bg-teal-100"
+              >
+                <span aria-hidden="true">📋</span> 출발 전 체크 리포트
+              </Link>
+              <a
+                href={`https://search.naver.com/search.naver?query=${encodeURIComponent(place.title)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-slate-100"
+              >
+                <span aria-hidden="true">🔍</span> 네이버에서 자세히 보기
+              </a>
+            </div>
             <div className="mt-4">
               <p className="mb-2 text-sm font-semibold text-slate-600">
                 언제 가나요? —{" "}
@@ -265,15 +275,10 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
             </div>
           </section>
 
-          {/* 소개 */}
-          {place.overview && (
-            <section>
-              <h2 className="text-lg font-bold text-slate-900">소개</h2>
-              <p className="mt-2 rounded-xl bg-white p-4 text-sm leading-relaxed text-slate-600 ring-1 ring-slate-200">
-                {place.overview}
-              </p>
-            </section>
-          )}
+          {/* 소개 — TourAPI detailCommon2 실시간 조회 (스트리밍, 없으면 숨김) */}
+          <Suspense fallback={null}>
+            <OverviewSection contentId={contentId} fallback={place.overview} />
+          </Suspense>
 
           {/* 안전한 대체지 추천 */}
           <section>
