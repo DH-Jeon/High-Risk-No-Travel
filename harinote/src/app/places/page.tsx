@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getPlacesWithSafety } from "@/lib/datasource";
+import {
+  getPlacesWithSafety,
+  getPlacesWithSafetyOnDate,
+  matchesPlaceQuery,
+} from "@/lib/datasource";
+import { dayOffsetSeoul, formatKoreanDate } from "@/lib/date";
+import DateChips from "@/components/DateChips";
 import {
   CONTENT_TYPE_LABEL,
   SUPPORTED_CONTENT_TYPE_IDS,
@@ -13,6 +19,7 @@ import {
   buildQuery,
   first,
   parseContentTypeId,
+  parseDate,
   parsePage,
   parseProfile,
   parseSigungu,
@@ -47,15 +54,20 @@ export default async function PlacesPage({ searchParams }: Props) {
   const sigunguCode = parseSigungu(sp.sigungu);
   const sigunguName = sigunguCode ? SIGUNGU_SEATS[sigunguCode].name : undefined;
 
+  // 날짜 모드 (홈 온보딩 "언제 가시나요?" 또는 DateChips) — 그날 기준 점수로 목록 구성
+  const date = parseDate(sp.date);
+
   // 기본 정렬 = 안전점수 높은 순 — "어디가 안전한가"가 서비스의 축이므로
   // 데이터 순서(사실상 가나다)가 아니라 점수가 목록의 기준이어야 한다.
-  // 전량 점수는 getPlacesWithSafety의 10분 메모리 캐시를 재사용해 부담 없음.
-  const places = [
-    ...(await getPlacesWithSafety(
-      { q: q || undefined, contentTypeId, sigunguCode },
-      profile,
-    )),
-  ].sort((a, b) => b.safety.score - a.safety.score);
+  // 전량 점수는 10분 메모리 캐시(오늘/날짜별)를 재사용해 부담 없음.
+  const all = date
+    ? await getPlacesWithSafetyOnDate(profile, date)
+    : await getPlacesWithSafety(undefined, profile);
+  const places = all
+    .filter((p) =>
+      matchesPlaceQuery(p, { q: q || undefined, contentTypeId, sigunguCode }),
+    )
+    .sort((a, b) => b.safety.score - a.safety.score);
 
   // 서버 사이드 페이지네이션 — 24건/페이지.
   const totalPages = Math.max(1, Math.ceil(places.length / PAGE_SIZE));
@@ -69,6 +81,7 @@ export default async function PlacesPage({ searchParams }: Props) {
       type: contentTypeId,
       sigungu: sigunguCode,
       profile: profileParam(profile),
+      date,
       page: p === 1 ? undefined : p,
     })}`;
 
@@ -89,6 +102,7 @@ export default async function PlacesPage({ searchParams }: Props) {
               type: tab.value,
               sigungu: sigunguCode,
               profile: profileParam(profile),
+              date,
             })}`;
             return (
               <Link
@@ -107,6 +121,18 @@ export default async function PlacesPage({ searchParams }: Props) {
           })}
         </nav>
 
+        {/* 여행 날짜 전환 */}
+        <DateChips
+          basePath="/places"
+          current={date}
+          extraParams={{
+            q: q || undefined,
+            type: contentTypeId,
+            sigungu: sigunguCode,
+            profile: profileParam(profile),
+          }}
+        />
+
         {/* 동행 프로필 전환 */}
         <ProfileChips
           basePath="/places"
@@ -115,12 +141,20 @@ export default async function PlacesPage({ searchParams }: Props) {
             q: q || undefined,
             type: contentTypeId,
             sigungu: sigunguCode,
+            date,
           }}
         />
       </div>
 
       <p className="mt-6 flex flex-wrap items-center gap-2 text-sm text-slate-500">
         <span>
+          {date && (
+            <strong className="text-sky-700">
+              {formatKoreanDate(date)} 기준
+              {dayOffsetSeoul(date) >= 4 && " (30년 기후, 통상일 점수)"}
+              {" · "}
+            </strong>
+          )}
           {sigunguName && (
             <strong className="text-slate-800">{sigunguName} </strong>
           )}
@@ -148,6 +182,7 @@ export default async function PlacesPage({ searchParams }: Props) {
               q: q || undefined,
               type: contentTypeId,
               profile: profileParam(profile),
+              date,
             })}`}
             className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-200"
           >
@@ -187,6 +222,7 @@ export default async function PlacesPage({ searchParams }: Props) {
                 key={place.contentId}
                 place={place}
                 profile={profile}
+                date={date}
               />
             ))}
           </div>

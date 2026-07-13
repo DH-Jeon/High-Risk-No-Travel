@@ -91,6 +91,11 @@ export async function getPlaces(query?: PlaceQuery): Promise<Place[]> {
   return places.filter((p) => matches(p, query));
 }
 
+/** 목록 페이지가 날짜별 전량 캐시 결과를 직접 필터링할 때 사용 */
+export function matchesPlaceQuery(place: Place, query?: PlaceQuery): boolean {
+  return matches(place, query);
+}
+
 export async function getPlace(contentId: number): Promise<Place | null> {
   const places = await loadPlaces();
   return places.find((p) => p.contentId === contentId) ?? null;
