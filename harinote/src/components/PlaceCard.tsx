@@ -6,6 +6,7 @@ import { CONTENT_TYPE_LABEL, ENV_TYPE_LABEL } from "@/lib/tour/types";
 import type { Profile } from "@/lib/safety/types";
 import SafetyScoreBadge from "@/components/SafetyScoreBadge";
 import { buildQuery, profileParam } from "@/components/search-params";
+import { cardSummary } from "@/lib/tour/overviews";
 
 /** imageUrl 없는 관광지의 플레이스홀더 — 환경 유형별 이모지·그라데이션 */
 const ENV_PLACEHOLDER: Record<PlaceEnvType, { emoji: string; bg: string }> = {
@@ -67,6 +68,14 @@ export default function PlaceCard({ place, profile, date, footer }: Props) {
           {place.title}
         </h3>
         <p className="truncate text-sm text-slate-500">{place.addr}</p>
+        {(() => {
+          const summary = cardSummary(place.contentId);
+          return summary ? (
+            <p className="line-clamp-2 text-xs leading-relaxed text-slate-500">
+              {summary}
+            </p>
+          ) : null;
+        })()}
         <SafetyScoreBadge score={place.safety.score} grade={place.safety.grade} />
         {footer}
       </div>
