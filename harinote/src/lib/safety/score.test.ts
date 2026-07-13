@@ -108,10 +108,25 @@ describe("heat — 기상청 폭염주의보 33℃ / 폭염경보 35℃", () => 
     expect(indoor).toBeGreaterThan(0);
   });
 
-  it("with_kids 프로필은 heat 감점 ×1.3", () => {
-    const base = factor(run({ tempC: 34 }), "heat").points;
-    const kids = factor(run({ tempC: 34 }, "outdoor_general", "with_kids"), "heat").points;
-    expect(kids).toBe(Math.round(base * 1.3));
+  it("with_kids/with_seniors는 폭염 임계값 2℃ 하향 — 31℃부터 주의보 구간 진입", () => {
+    // 기상청 폭염 영향예보: 취약계층은 31℃(일반 주의보 33℃보다 낮음)부터 위험 단계
+    const base = factor(run({ tempC: 31 }), "heat").points; // (31-28)/5×8 = 4.8 → 5
+    const kids = factor(run({ tempC: 31 }, "outdoor_general", "with_kids"), "heat").points; // 33℃ 지점 평가 = 12
+    const seniors = factor(run({ tempC: 31 }, "outdoor_general", "with_seniors"), "heat").points;
+    expect(base).toBe(5);
+    expect(kids).toBe(12);
+    expect(seniors).toBe(12);
+  });
+
+  it("민감층은 온화한 날(27℃)에도 소량 감점 — 프로필 간 차이가 항상 보인다", () => {
+    const base = factor(run({ tempC: 27 }), "heat").points;
+    const kids = factor(run({ tempC: 27 }, "outdoor_general", "with_kids"), "heat").points;
+    expect(base).toBe(0);
+    expect(kids).toBeGreaterThan(0);
+  });
+
+  it("민감층 폭염도 상한 25에서 clamp", () => {
+    expect(factor(run({ tempC: 38 }, "outdoor_general", "with_kids"), "heat").points).toBe(25);
   });
 
   it("heat description은 값과 공식 기준을 함께 표기", () => {
@@ -178,10 +193,14 @@ describe("pm — 환경부 PM2.5 등급(좋음 ≤15 / 보통 ≤35 / 나쁨 ≤
     expect(p76).toBe(15);
   });
 
-  it("with_kids는 pm 감점 ×1.3 (나쁨 구간에서 확인)", () => {
-    const base = factor(run({ pm25: 40 }), "pm").points;
-    const kids = factor(run({ pm25: 40 }, "outdoor_general", "with_kids"), "pm").points;
-    expect(kids).toBe(Math.round(base * 1.3));
+  it("with_kids는 민감군 곡선(AQI USG 구조) — 보통·나쁨 구간에서 이른 감점", () => {
+    // 보통(30㎍/㎥): 일반 3 → 민감군 5 / 나쁨(40): 일반 8 → 민감군 12
+    expect(factor(run({ pm25: 30 }), "pm").points).toBe(3);
+    expect(factor(run({ pm25: 30 }, "outdoor_general", "with_kids"), "pm").points).toBe(5);
+    expect(factor(run({ pm25: 40 }), "pm").points).toBe(8);
+    expect(factor(run({ pm25: 40 }, "outdoor_general", "with_kids"), "pm").points).toBe(12);
+    // 좋음(≤15)은 민감군도 0 — 불필요한 불안 조성 금지
+    expect(factor(run({ pm25: 15 }, "outdoor_general", "with_kids"), "pm").points).toBe(0);
   });
 
   it("매우나쁨 + with_kids여도 상한 15에서 clamp", () => {
