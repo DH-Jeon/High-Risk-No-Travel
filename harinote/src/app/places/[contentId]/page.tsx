@@ -18,7 +18,7 @@ import CourseTimeline from "@/components/CourseTimeline";
 import PlaceCard from "@/components/PlaceCard";
 import PlaceGallery from "@/components/PlaceGallery";
 import PlaceMap from "@/components/PlaceMap";
-import { GallerySection, OverviewSection, ReviewsSection } from "./sections";
+import { GallerySection, OverviewSection, PetSection, ReviewsSection } from "./sections";
 import ProfileChips from "@/components/ProfileChips";
 import RiskBreakdownBar from "@/components/RiskBreakdownBar";
 import RiskTypeBadge from "@/components/RiskTypeBadge";
@@ -278,6 +278,11 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
           {/* 소개 — TourAPI detailCommon2 실시간 조회 (스트리밍, 없으면 숨김) */}
           <Suspense fallback={null}>
             <OverviewSection contentId={contentId} fallback={place.overview} />
+          </Suspense>
+
+          {/* 반려동물 동반 정보 — detailPetTour2 실시간 (없으면 숨김) */}
+          <Suspense fallback={null}>
+            <PetSection contentId={contentId} />
           </Suspense>
 
           {/* 안전한 대체지 추천 */}

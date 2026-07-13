@@ -7,6 +7,7 @@
 import type { PlaceEnvType } from "@/lib/tour/types";
 import { fetchPlaceImages } from "@/lib/tour/images";
 import { fetchPlaceOverview } from "@/lib/tour/overview";
+import { fetchPlacePetInfo } from "@/lib/tour/pet";
 import { fetchBlogReviews } from "@/lib/review/naver-blog";
 import PlaceGallery from "@/components/PlaceGallery";
 import BlogReviews from "@/components/BlogReviews";
@@ -48,6 +49,39 @@ export async function OverviewSection({
       <p className="mt-2 rounded-xl bg-white p-4 text-sm leading-relaxed text-slate-600 ring-1 ring-slate-200">
         {overview}
       </p>
+    </section>
+  );
+}
+
+/** TourAPI detailPetTour2 반려동물 동반 정보 — 실시간 조회, 정보 없으면 숨김 */
+export async function PetSection({ contentId }: { contentId: number }) {
+  const pet = await fetchPlacePetInfo(contentId);
+  if (!pet) return null;
+  return (
+    <section>
+      <h2 className="text-lg font-bold text-slate-900">
+        🐶 반려동물과 함께
+      </h2>
+      <dl className="mt-2 space-y-1.5 rounded-xl bg-white p-4 text-sm leading-relaxed text-slate-600 ring-1 ring-slate-200">
+        {pet.allowed && (
+          <div>
+            <dt className="inline font-semibold text-slate-700">동반 가능: </dt>
+            <dd className="inline">{pet.allowed}</dd>
+          </div>
+        )}
+        {pet.type && (
+          <div>
+            <dt className="inline font-semibold text-slate-700">동반 유형: </dt>
+            <dd className="inline">{pet.type}</dd>
+          </div>
+        )}
+        {pet.needs && (
+          <div>
+            <dt className="inline font-semibold text-slate-700">준비물·조건: </dt>
+            <dd className="inline">{pet.needs}</dd>
+          </div>
+        )}
+      </dl>
     </section>
   );
 }
