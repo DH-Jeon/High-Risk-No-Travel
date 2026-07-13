@@ -58,23 +58,30 @@ export function computeSafetyScore(
   const prof = PROFILE_WEIGHT[profile];
   const factors: RiskFactor[] = [];
 
-  // ── 폭염 (Weather) ──
-  const heat = finalize(heatPoints(input.tempC), env.heat * prof.heat, HEAT.MAX_POINTS);
+  // ── 폭염 (Weather) — 민감층(아이·부모님)은 임계값 하향 (weights.ts 근거 주석 참조) ──
+  const heatAdvisory = HEAT.ADVISORY_C - prof.heatShiftC;
+  const heatWarning = HEAT.WARNING_C - prof.heatShiftC;
+  const heatNote = prof.heatShiftC > 0 ? " · 동반 민감 기준" : "";
+  const heat = finalize(
+    heatPoints(input.tempC, prof.heatShiftC),
+    env.heat * prof.heat,
+    HEAT.MAX_POINTS,
+  );
   factors.push({
     key: "heat",
     label: "폭염",
     value: input.tempC,
     unit: "℃",
-    threshold: HEAT.ADVISORY_C,
+    threshold: heatAdvisory,
     points: heat,
     maxPoints: HEAT.MAX_POINTS,
     level: levelForPoints(heat, HEAT.MAX_POINTS),
     description:
-      input.tempC >= HEAT.WARNING_C
-        ? `최고기온 ${input.tempC}℃ — 폭염경보 기준(${HEAT.WARNING_C}℃) ${vsThreshold(input.tempC, HEAT.WARNING_C)}`
-        : input.tempC >= HEAT.ADVISORY_C
-          ? `최고기온 ${input.tempC}℃ — 폭염주의보 기준(${HEAT.ADVISORY_C}℃) ${vsThreshold(input.tempC, HEAT.ADVISORY_C)}`
-          : `최고기온 ${input.tempC}℃ — 폭염주의보 기준(${HEAT.ADVISORY_C}℃) 미만`,
+      input.tempC >= heatWarning
+        ? `최고기온 ${input.tempC}℃ — 폭염경보 기준(${heatWarning}℃) ${vsThreshold(input.tempC, heatWarning)}${heatNote}`
+        : input.tempC >= heatAdvisory
+          ? `최고기온 ${input.tempC}℃ — 폭염주의보 기준(${heatAdvisory}℃) ${vsThreshold(input.tempC, heatAdvisory)}${heatNote}`
+          : `최고기온 ${input.tempC}℃ — 폭염주의보 기준(${heatAdvisory}℃) 미만${heatNote}`,
   });
 
   // ── 강수·강풍 (Weather) — 강수/강풍에 서로 다른 환경 가중 적용 후 합산 clamp ──
@@ -102,8 +109,12 @@ export function computeSafetyScore(
     } · ${windDesc}`,
   });
 
-  // ── 미세먼지 (Weather) ──
-  const pm = finalize(pmPoints(input.pm25), env.pm * prof.pm, PM25.MAX_POINTS);
+  // ── 미세먼지 (Weather) — 민감군(아이 동반)은 이른 감점 곡선 (AQI USG 구조) ──
+  const pm = finalize(
+    pmPoints(input.pm25, prof.pmSensitive),
+    env.pm * prof.pm,
+    PM25.MAX_POINTS,
+  );
   factors.push({
     key: "pm",
     label: "미세먼지",
@@ -113,7 +124,7 @@ export function computeSafetyScore(
     points: pm,
     maxPoints: PM25.MAX_POINTS,
     level: levelForPoints(pm, PM25.MAX_POINTS),
-    description: `PM2.5 ${input.pm25}㎍/㎥ — 환경부 '${pmGradeLabel(input.pm25)}' 등급`,
+    description: `PM2.5 ${input.pm25}㎍/㎥ — 환경부 '${pmGradeLabel(input.pm25)}' 등급${prof.pmSensitive ? " · 민감군 기준" : ""}`,
   });
 
   // ── 산불·산사태 (Disaster) ──
