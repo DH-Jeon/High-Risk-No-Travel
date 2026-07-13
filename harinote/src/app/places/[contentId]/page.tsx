@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getPlaceWithSafety, getPlacesWithSafety } from "@/lib/datasource";
+import {
+  getDateSafety,
+  getPlaceWithSafety,
+  getPlacesWithSafety,
+  getPlacesWithSafetyOnDate,
+} from "@/lib/datasource";
+import { formatKoreanDate } from "@/lib/date";
+import DateChips from "@/components/DateChips";
 import { CONTENT_TYPE_LABEL, ENV_TYPE_LABEL } from "@/lib/tour/types";
 import { PROFILE_LABEL, RISK_CATEGORY_LABELS } from "@/lib/safety/types";
 import { Suspense } from "react";
@@ -17,6 +24,7 @@ import RiskBreakdownBar from "@/components/RiskBreakdownBar";
 import RiskTypeBadge from "@/components/RiskTypeBadge";
 import SafetyScoreBadge from "@/components/SafetyScoreBadge";
 import {
+  parseDate,
   parseProfile,
   profileParam,
   buildQuery,
@@ -49,16 +57,27 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
   const place = await getPlaceWithSafety(contentId, profile);
   if (!place) notFound();
 
-  const { safety } = place;
+  // 날짜 모드: D+1~3 예보 / D+4~ 계절 범위. 계산 불가면 오늘 모드 유지.
+  const date = parseDate(sp.date);
+  const dateSafety = date ? await getDateSafety(place, profile, date) : null;
+  const activeDate = dateSafety ? date : undefined;
+
+  // 대표 점수(랭킹·대체지 비교 기준): 오늘 점수 또는 날짜 점수(계절은 통상일)
+  const safety = dateSafety ? dateSafety.breakdown : place.safety;
+  // 분석 섹션(감점 요약·요인 상세) 기준: 계절 모드는 궂은날 — "무엇을 주의할지"가 목적
+  const analysisSafety = dateSafety?.seasonal ? dateSafety.seasonal.bad : safety;
 
   // 대체지 추천: 전체 후보(요청 스코프 캐시로 재로드 비용 없음)에서 30km 이내 더 안전한 곳.
+  // 날짜 모드에서는 후보도 같은 날짜 기준으로 계산해 공정하게 비교한다.
   // 사진 갤러리(detailImage2)·후기(네이버)는 느린 외부 API라 Suspense로 스트리밍한다.
-  const candidates = await getPlacesWithSafety(undefined, profile);
+  const candidates = activeDate
+    ? await getPlacesWithSafetyOnDate(profile, activeDate)
+    : await getPlacesWithSafety(undefined, profile);
 
-  const alternatives = recommendAlternatives(place, candidates);
+  const alternatives = recommendAlternatives({ ...place, safety }, candidates);
 
   // 안전 반나절 코스: 앵커(target 또는 대체지 1순위) + 음식점 + 관광지·문화시설
-  const course = buildHalfDayCourse(place, alternatives, candidates);
+  const course = buildHalfDayCourse({ ...place, safety }, alternatives, candidates);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -111,17 +130,71 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
           </p>
 
           <div className="mt-6">
-            <SafetyScoreBadge
-              score={safety.score}
-              grade={safety.grade}
-              size="lg"
-            />
+            {dateSafety?.seasonal ? (
+              /* 계절 모드: 개별 날짜 예보가 없어 단일 점수를 단정하지 않고 범위로 안내 */
+              <div className="rounded-2xl bg-white p-5 ring-1 ring-slate-200">
+                <p className="text-xs font-medium text-slate-500">
+                  {formatKoreanDate(dateSafety.dateISO)} 방문 —{" "}
+                  {dateSafety.seasonal.month}월 · 30년 기후 기준
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400">통상일</p>
+                    <SafetyScoreBadge
+                      score={dateSafety.seasonal.typical.score}
+                      grade={dateSafety.seasonal.typical.grade}
+                    />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400">궂은날</p>
+                    <SafetyScoreBadge
+                      score={dateSafety.seasonal.bad.score}
+                      grade={dateSafety.seasonal.bad.grade}
+                    />
+                  </div>
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-slate-400">
+                  먼 날짜는 날씨를 예보할 수 없어요. 이 시기 30년 기후에서
+                  평범한 날과 궂은 날(상위 10%)의 점수 범위입니다.
+                </p>
+              </div>
+            ) : (
+              <SafetyScoreBadge
+                score={safety.score}
+                grade={safety.grade}
+                size="lg"
+                label={
+                  dateSafety
+                    ? `${formatKoreanDate(dateSafety.dateISO)} 예보 기준 안전 점수`
+                    : "오늘의 안전 점수"
+                }
+              />
+            )}
+            {dateSafety?.mode === "forecast" && (
+              <p className="mt-2 text-xs text-slate-400">
+                기상은 {dateSafety.dayOffset}일 후 예보, 미세먼지·산불위험은
+                현재값 기준입니다.
+              </p>
+            )}
             <Link
               href={`/places/${place.contentId}/report${buildQuery({ profile: profileParam(profile) })}`}
               className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-4 py-1.5 text-sm font-semibold text-teal-700 ring-1 ring-teal-200 transition-colors hover:bg-teal-100"
             >
               <span aria-hidden="true">📋</span> 출발 전 체크 리포트
             </Link>
+            <div className="mt-4">
+              <p className="mb-2 text-sm font-semibold text-slate-600">
+                언제 가나요? —{" "}
+                <strong className="text-sky-700">
+                  {activeDate ? formatKoreanDate(activeDate) : "오늘"} 기준
+                </strong>
+              </p>
+              <DateChips
+                basePath={`/places/${place.contentId}`}
+                current={activeDate}
+                extraParams={{ profile: profileParam(profile) }}
+              />
+            </div>
             <div className="mt-4">
               <p className="mb-2 text-sm font-semibold text-slate-600">
                 동행에 따라 점수가 달라져요 —{" "}
@@ -132,6 +205,7 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
               <ProfileChips
                 basePath={`/places/${place.contentId}`}
                 current={profile}
+                extraParams={{ date: activeDate }}
               />
             </div>
           </div>
@@ -144,10 +218,17 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
         <div className="space-y-8">
           {/* 카테고리 소계 */}
           <section>
-            <h2 className="text-lg font-bold text-slate-900">분야별 감점 요약</h2>
+            <h2 className="text-lg font-bold text-slate-900">
+              분야별 감점 요약
+              {dateSafety?.seasonal && (
+                <span className="ml-2 text-sm font-semibold text-slate-400">
+                  궂은날 기준
+                </span>
+              )}
+            </h2>
             <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
               {RISK_CATEGORY_LABELS.map((c) => {
-                const points = safety[c.key];
+                const points = analysisSafety[c.key];
                 return (
                   <div
                     key={c.key}
@@ -172,11 +253,15 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
             </div>
           </section>
 
-          {/* 요인별 상세 */}
+          {/* 요인별 상세 — 계절 모드는 궂은날 시나리오 기준 (무엇을 주의할지) */}
           <section>
-            <h2 className="text-lg font-bold text-slate-900">왜 이 점수인가요?</h2>
+            <h2 className="text-lg font-bold text-slate-900">
+              {dateSafety?.seasonal
+                ? "궂은날엔 이런 점을 주의하세요"
+                : "왜 이 점수인가요?"}
+            </h2>
             <div className="mt-3">
-              <RiskBreakdownBar factors={safety.factors} />
+              <RiskBreakdownBar factors={analysisSafety.factors} />
             </div>
           </section>
 
@@ -222,6 +307,7 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
                     key={alt.contentId}
                     place={alt}
                     profile={profile}
+                    date={activeDate}
                     footer={
                       <p className="text-xs font-semibold text-teal-700">
                         {alt.distanceKm.toFixed(1)}km · 안전점수 +
@@ -266,7 +352,7 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
                 score: alt.safety.score,
                 distanceKm: alt.distanceKm,
               }))}
-              profileQuery={buildQuery({ profile: profileParam(profile) })}
+              profileQuery={buildQuery({ profile: profileParam(profile), date: activeDate })}
             />
           </section>
 
