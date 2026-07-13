@@ -63,12 +63,20 @@ export default async function Home({ searchParams }: Props) {
               <p className="mb-1.5 text-sm font-semibold text-slate-600">
                 누구와 함께 가시나요?
               </p>
-              <ProfileChips
-                basePath="/"
-                current={profile}
-                extraParams={{ date }}
-                exclude={["own_car"]}
-              />
+              <div className="flex flex-wrap items-center gap-2">
+                <ProfileChips
+                  basePath="/"
+                  current={profile}
+                  extraParams={{ date }}
+                  exclude={["own_car"]}
+                />
+                <Link
+                  href={`/places${buildQuery({ pet: "1", profile: profileParam(profile), date })}`}
+                  className="inline-flex items-center gap-1 rounded-full bg-white px-3.5 py-1.5 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-amber-50 hover:text-amber-700"
+                >
+                  🐶 반려동물과 함께
+                </Link>
+              </div>
             </div>
           </div>
 
