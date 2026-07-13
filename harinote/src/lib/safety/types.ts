@@ -38,6 +38,7 @@ export interface RiskInput {
 
 export type RiskFactorKey =
   | "heat" // 폭염
+  | "cold" // 한파 (계절 모드 전용 — 30년 기후 시나리오에서만 계산)
   | "rain_wind" // 강수·강풍
   | "pm" // 미세먼지
   | "forest_fire" // 산불·산사태
