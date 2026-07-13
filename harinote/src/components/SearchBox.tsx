@@ -1,19 +1,38 @@
 import type { Profile } from "@/lib/safety/types";
 import { PROFILE_LABEL } from "@/lib/safety/types";
+import { todayISOSeoul } from "@/lib/date";
 
 interface Props {
   defaultQuery?: string;
   /** true면 동행 프로필 라디오 칩을 폼 안에 포함 (홈 히어로용) */
   withProfile?: boolean;
+  /** true면 여행 날짜 라디오 칩을 폼 안에 포함 (홈 히어로용) */
+  withDate?: boolean;
   /** withProfile=false일 때 현재 프로필을 hidden으로 유지 */
   profile?: Profile;
   compact?: boolean;
 }
 
-/** GET 폼 검색창 — JS 없이 /places?q=&profile= 로 이동 */
+/**
+ * 홈 온보딩 프로필 — 자차(own_car)는 도로 위험 데이터 미연동으로 점수에
+ * 영향이 없어 제외한다 (데이터 연동 시 복원).
+ */
+const ONBOARDING_PROFILES = (Object.keys(PROFILE_LABEL) as Profile[]).filter(
+  (p) => p !== "own_car",
+);
+
+/** 오늘(KST) 기준 +days일의 YYYY-MM-DD */
+function isoAfter(days: number): string {
+  return new Date(Date.parse(`${todayISOSeoul()}T00:00:00Z`) + days * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+}
+
+/** GET 폼 검색창 — JS 없이 /places?q=&profile=&date= 로 이동 */
 export default function SearchBox({
   defaultQuery = "",
   withProfile = false,
+  withDate = false,
   profile = "default",
   compact = false,
 }: Props) {
@@ -60,13 +79,45 @@ export default function SearchBox({
         </button>
       </div>
 
+      {withDate && (
+        <fieldset className="mt-4">
+          <legend className="mb-2 text-sm font-semibold text-slate-600">
+            언제 가시나요?
+          </legend>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { label: "오늘", value: "" },
+              { label: "내일", value: isoAfter(1) },
+              { label: "모레", value: isoAfter(2) },
+              { label: "글피", value: isoAfter(3) },
+            ].map((d) => (
+              <label key={d.label} className="cursor-pointer">
+                <input
+                  type="radio"
+                  name="date"
+                  value={d.value}
+                  defaultChecked={d.value === ""}
+                  className="peer sr-only"
+                />
+                <span className="inline-block rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 transition-colors peer-checked:bg-sky-600 peer-checked:text-white peer-checked:ring-sky-600 peer-focus-visible:ring-2 peer-focus-visible:ring-sky-500 hover:bg-sky-50">
+                  {d.label}
+                </span>
+              </label>
+            ))}
+            <span className="self-center text-xs text-slate-400">
+              더 먼 날짜는 결과 화면의 달력에서 고를 수 있어요
+            </span>
+          </div>
+        </fieldset>
+      )}
+
       {withProfile && (
         <fieldset className="mt-4">
           <legend className="mb-2 text-sm font-semibold text-slate-600">
             누구와 함께 가시나요?
           </legend>
           <div className="flex flex-wrap gap-2">
-            {(Object.keys(PROFILE_LABEL) as Profile[]).map((p) => (
+            {ONBOARDING_PROFILES.map((p) => (
               <label key={p} className="cursor-pointer">
                 <input
                   type="radio"

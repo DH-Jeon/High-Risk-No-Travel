@@ -24,7 +24,7 @@ export default async function Home() {
             알려드립니다.
           </p>
           <div className="mt-4">
-            <SearchBox withProfile />
+            <SearchBox withProfile withDate />
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold text-slate-500">
