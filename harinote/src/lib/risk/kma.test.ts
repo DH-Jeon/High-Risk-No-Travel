@@ -49,10 +49,10 @@ describe("pickBaseDateTime (Asia/Seoul 기준)", () => {
     });
   });
 
-  it("KST 23:59 → 당일 23시 발표", () => {
+  it("KST 23:59 → 20시 발표 유지 (23시 발표는 내일 예보라 '오늘' 요약에 부적합)", () => {
     expect(pickBaseDateTime(kst("2026-07-03T23:59:00"))).toEqual({
       baseDate: "20260703",
-      baseTime: "2300",
+      baseTime: "2000",
     });
   });
 
@@ -78,8 +78,8 @@ describe("parsePcp (강수량 문자열 파싱)", () => {
     expect(parsePcp("1.0mm")).toBe(1);
   });
 
-  it('"30.0~50.0mm" → 상한 50', () => {
-    expect(parsePcp("30.0~50.0mm")).toBe(50);
+  it('"30.0~50.0mm" → 중간값 40', () => {
+    expect(parsePcp("30.0~50.0mm")).toBe(40);
   });
 
   it('"50.0mm 이상" → 50', () => {
@@ -118,7 +118,7 @@ describe("summarizeDaily", () => {
       tempC: 33,
       rainProbPct: 80,
       windMs: 7.2,
-      rainMm: 55,
+      rainMm: 45, // 5.0mm + 범위 중간값 40
     });
   });
 

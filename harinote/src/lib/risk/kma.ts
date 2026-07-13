@@ -11,8 +11,12 @@ import { createTtlCache } from "./cache";
 const BASE_URL =
   "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst";
 
-/** 발표 시각(KST). 각 발표는 API 반영까지 ~10분 소요 */
-const BASE_HOURS = [2, 5, 8, 11, 14, 17, 20, 23];
+/**
+ * 당일 조회에 쓰는 발표 시각(KST). 각 발표는 API 반영까지 ~10분 소요.
+ * 23시 발표는 다음날 예보부터 시작하므로 당일 조회에는 쓰지 않는다
+ * ("오늘의 점수"에 내일 예보가 섞이는 문제) — 자정~02:10 구간 전용.
+ */
+const BASE_HOURS = [2, 5, 8, 11, 14, 17, 20];
 /** 발표 후 API 반영 대기 여유 (분) */
 const PUBLISH_DELAY_MIN = 10;
 
@@ -50,7 +54,8 @@ function kstParts(d: Date): { date: string; minutes: number } {
 
 /**
  * 가장 최근의 "발표시각 + 10분"이 지난 base_date/base_time 선택 (Asia/Seoul 기준).
- * 자정~02:10 사이에는 전날 23시 발표를 쓴다.
+ * 자정~02:10 사이에는 전날 23시 발표를 쓴다 (23시 발표는 오늘 0시부터의 예보라 라벨과 일치).
+ * 23:10~23:59에는 20시 발표를 유지한다 — 23시 발표를 쓰면 "오늘" 요약이 내일 예보가 된다.
  */
 export function pickBaseDateTime(now: Date): { baseDate: string; baseTime: string } {
   const { date, minutes } = kstParts(now);
@@ -68,16 +73,17 @@ export function pickBaseDateTime(now: Date): { baseDate: string; baseTime: strin
 
 /**
  * PCP(1시간 강수량) 문자열 파싱.
- * "강수없음"→undefined, "1mm 미만"→0.5, "30.0~50.0mm"→50(상한), "50.0mm 이상"→50, "1.0mm"→1
+ * "강수없음"→undefined, "1mm 미만"→0.5, "30.0~50.0mm"→40(중간값), "50.0mm 이상"→50, "1.0mm"→1
  */
 export function parsePcp(value: string | undefined | null): number | undefined {
   if (value == null) return undefined;
   const v = value.trim();
   if (v === "" || v === "-" || v === "강수없음") return undefined;
   if (v.includes("미만")) return 0.5;
-  // "30.0~50.0mm" — 범위는 보수적으로 상한을 취한다 (안전 점수는 위험 과소평가 금지)
-  const range = /~\s*([\d.]+)/.exec(v);
-  if (range) return Number(range[1]);
+  // "30.0~50.0mm" — 범위는 중간값을 취한다. 상한을 쓰면 하루 합산 시
+  // 시간대마다 +10mm씩 과대 누적돼 감점이 체계적으로 부풀려진다
+  const range = /([\d.]+)\s*~\s*([\d.]+)/.exec(v);
+  if (range) return (Number(range[1]) + Number(range[2])) / 2;
   const num = /([\d.]+)/.exec(v);
   if (!num) return undefined;
   const parsed = Number(num[1]);
