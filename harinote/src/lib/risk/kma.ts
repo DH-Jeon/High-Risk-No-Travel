@@ -124,12 +124,17 @@ function requireApiKey(): string {
 
 /**
  * 예보 item 목록 → 하루 요약.
- * targetDate(오늘)의 item이 없으면(자정 직전 23시 발표는 다음날부터 시작)
- * 가장 이른 예보일로 대체한다 — 그 시점 방문 판단에는 다음날 예보가 더 유효.
+ * fallbackToEarliest(오늘 조회 전용): targetDate의 item이 없으면 가장 이른
+ * 예보일로 대체한다. 미래 날짜 조회에서는 끄고 빈 요약을 돌려받아
+ * "그 날짜 예보 없음 → 계절모드 폴백" 신호로 쓴다.
  */
-export function summarizeDaily(items: KmaItem[], targetDate: string): KmaDailyWeather {
+export function summarizeDaily(
+  items: KmaItem[],
+  targetDate: string,
+  fallbackToEarliest = true,
+): KmaDailyWeather {
   let dayItems = items.filter((i) => i.fcstDate === targetDate);
-  if (dayItems.length === 0 && items.length > 0) {
+  if (dayItems.length === 0 && items.length > 0 && fallbackToEarliest) {
     const earliest = items.reduce(
       (min, i) => (i.fcstDate < min ? i.fcstDate : min),
       items[0].fcstDate,
@@ -176,11 +181,16 @@ export function summarizeDaily(items: KmaItem[], targetDate: string): KmaDailyWe
   return weather;
 }
 
-/** 원시 호출 — 캐시 없이 1회 fetch + 파싱. 스모크 스크립트에서도 사용 */
+/**
+ * 원시 호출 — 캐시 없이 1회 fetch + 파싱. 스모크 스크립트에서도 사용.
+ * targetDate(YYYYMMDD)를 주면 그 날짜(D+1~3)의 예보 요약 — 응답에 해당
+ * 날짜가 없으면 빈 요약을 반환한다 (미래 조회는 earliest 폴백 없음).
+ */
 export async function fetchKmaDailyWeatherRaw(
   nx: number,
   ny: number,
   now: Date = new Date(),
+  targetDate?: string,
 ): Promise<KmaDailyWeather> {
   const key = requireApiKey();
   const { baseDate, baseTime } = pickBaseDateTime(now);
@@ -238,13 +248,24 @@ export async function fetchKmaDailyWeatherRaw(
   }
 
   const items = parsed.data.response.body?.items?.item ?? [];
-  return summarizeDaily(items, kstParts(now).date);
+  return summarizeDaily(
+    items,
+    targetDate ?? kstParts(now).date,
+    targetDate === undefined,
+  );
 }
 
-/** 격자별 1시간 캐시 (실패는 5분 후 재시도) */
+/** 격자·날짜별 1시간 캐시 (실패는 5분 후 재시도) */
 const cache = createTtlCache<KmaDailyWeather>(60 * 60 * 1000, 5 * 60 * 1000);
 
-/** 격자(nx, ny)의 오늘 날씨 요약 — 1시간 메모리 캐시 */
-export function fetchKmaDailyWeather(nx: number, ny: number): Promise<KmaDailyWeather> {
-  return cache.get(`${nx},${ny}`, () => fetchKmaDailyWeatherRaw(nx, ny));
+/** 격자(nx, ny)의 날씨 요약 — targetDate(YYYYMMDD) 미지정 시 오늘. 1시간 메모리 캐시 */
+export function fetchKmaDailyWeather(
+  nx: number,
+  ny: number,
+  targetDate?: string,
+): Promise<KmaDailyWeather> {
+  const dateKey = targetDate ?? "today";
+  return cache.get(`${nx},${ny},${dateKey}`, () =>
+    fetchKmaDailyWeatherRaw(nx, ny, new Date(), targetDate),
+  );
 }
