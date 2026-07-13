@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { attachSafety, getPlaces } from "@/lib/datasource";
+import { getPlacesWithSafety } from "@/lib/datasource";
 import {
   CONTENT_TYPE_LABEL,
   SUPPORTED_CONTENT_TYPE_IDS,
@@ -47,21 +47,21 @@ export default async function PlacesPage({ searchParams }: Props) {
   const sigunguCode = parseSigungu(sp.sigungu);
   const sigunguName = sigunguCode ? SIGUNGU_SEATS[sigunguCode].name : undefined;
 
-  const places = await getPlaces({
-    q: q || undefined,
-    contentTypeId,
-    sigunguCode,
-  });
+  // 기본 정렬 = 안전점수 높은 순 — "어디가 안전한가"가 서비스의 축이므로
+  // 데이터 순서(사실상 가나다)가 아니라 점수가 목록의 기준이어야 한다.
+  // 전량 점수는 getPlacesWithSafety의 10분 메모리 캐시를 재사용해 부담 없음.
+  const places = [
+    ...(await getPlacesWithSafety(
+      { q: q || undefined, contentTypeId, sigunguCode },
+      profile,
+    )),
+  ].sort((a, b) => b.safety.score - a.safety.score);
 
   // 서버 사이드 페이지네이션 — 24건/페이지.
-  // 점수는 필터·정렬에 쓰이지 않으므로 화면에 나오는 24건에만 계산한다.
   const totalPages = Math.max(1, Math.ceil(places.length / PAGE_SIZE));
   const page = Math.min(parsePage(sp.page), totalPages);
   const start = (page - 1) * PAGE_SIZE;
-  const pagePlaces = await attachSafety(
-    places.slice(start, start + PAGE_SIZE),
-    profile,
-  );
+  const pagePlaces = places.slice(start, start + PAGE_SIZE);
 
   const pageHref = (p: number) =>
     `/places${buildQuery({
