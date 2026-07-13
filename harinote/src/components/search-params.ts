@@ -67,6 +67,11 @@ export function profileParam(profile: Profile): string | undefined {
   return profile === "default" ? undefined : profile;
 }
 
+/** 반려동물 동반 필터 — pet=1일 때만 true */
+export function parsePet(v: SearchParamValue): boolean {
+  return first(v) === "1";
+}
+
 /**
  * 날짜 파라미터 파싱 — YYYY-MM-DD, 내일~1년 이내만 허용.
  * 오늘·과거·형식 오류는 undefined (= 오늘 모드, 기존 동작).
