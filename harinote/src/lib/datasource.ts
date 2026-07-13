@@ -192,11 +192,17 @@ export interface DateSafety {
   seasonal?: SeasonalRange;
 }
 
+/** 점수 계산에 필요한 최소 장소 정보 — 축제 등 관광지 외 스팟도 이 형태로 계산 가능 */
+export type SafetySpot = Pick<
+  Place,
+  "contentId" | "envType" | "sigunguCode" | "lat" | "lng"
+>;
+
 /**
  * 특정 미래 날짜의 안전 점수. 계절 데이터까지 없으면 null (호출부는 오늘 모드 유지).
  */
 export async function getDateSafety(
-  place: Place,
+  place: SafetySpot,
   profile: Profile,
   dateISO: string,
 ): Promise<DateSafety | null> {
@@ -215,6 +221,22 @@ export async function getDateSafety(
   const r = seasonalRange(place, monthOfISO(dateISO), profile);
   if (!r) return null;
   return { mode: "seasonal", dateISO, dayOffset, breakdown: r.typical, seasonal: r };
+}
+
+/**
+ * 임의 스팟(축제 장소 등)의 안전 점수 — 오늘 또는 특정 날짜.
+ * 계산 불가(계절 데이터 없음 등)면 null.
+ */
+export async function getSpotSafety(
+  spot: SafetySpot,
+  profile: Profile = "default",
+  dateISO?: string,
+): Promise<RiskBreakdown | null> {
+  if (dateISO) {
+    const ds = await getDateSafety(spot, profile, dateISO);
+    return ds ? ds.breakdown : null;
+  }
+  return computeSafetyScore(await getLiveRiskInput(spot), spot, profile);
 }
 
 /** 날짜별 후보 목록 캐시 — 날짜가 다양할 수 있어 개수를 제한한다 */
