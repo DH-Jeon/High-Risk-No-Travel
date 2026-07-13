@@ -258,8 +258,8 @@ export default async function ReportPage({ params, searchParams }: Props) {
           <p className="mt-1">
             데이터 출처: 한국관광공사 TourAPI · {medicalDataSource()}
             {hasLiveRiskKeys()
-              ? " · 기상청 · AirKorea(한국환경공단). 산불위험·대피소는 실연동 준비 중인 시범값입니다."
-              : ". 기상·미세먼지·산불위험·대피소는 시범값 기준입니다."}
+              ? " · 기상청 · AirKorea(한국환경공단). 산불위험은 실연동 준비 중인 시범값입니다."
+              : ". 기상·미세먼지·산불위험은 시범값 기준입니다."}
           </p>
         </footer>
       </article>
