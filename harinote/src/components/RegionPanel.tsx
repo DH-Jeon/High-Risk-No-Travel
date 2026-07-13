@@ -10,6 +10,10 @@ interface RegionPanelProps {
   selectedCode: number | null;
   onSelect: (sigunguCode: number) => void;
   onClear: () => void;
+  /** 점수 기준 라벨 (기본 "오늘", 날짜 모드에서 "7월 20일 (월)" 등) */
+  dateLabel?: string;
+  /** 목록/코스 링크에 유지할 조건 (profile=..., date=...) */
+  extraQuery?: Record<string, string | undefined>;
 }
 
 /** 대시보드 우측 패널 — 선택 전: 시군 리스트 / 선택 후: 시군 상세 */
@@ -18,8 +22,18 @@ export default function RegionPanel({
   selectedCode,
   onSelect,
   onClear,
+  dateLabel = "오늘",
+  extraQuery = {},
 }: RegionPanelProps) {
   const selected = regions.find((r) => r.sigunguCode === selectedCode);
+
+  function hrefWith(base: string, sigunguCode: number): string {
+    const q = new URLSearchParams({ sigungu: String(sigunguCode) });
+    for (const [k, v] of Object.entries(extraQuery)) {
+      if (v) q.set(k, v);
+    }
+    return `${base}?${q.toString()}`;
+  }
 
   if (selected) {
     return (
@@ -42,13 +56,13 @@ export default function RegionPanel({
                 grade={selected.grade}
               />
               <p className="text-xs text-slate-500">
-                오늘 기준 {GRADE_LABEL[selected.grade]} — 시군 내 관광지
+                {dateLabel} 기준 {GRADE_LABEL[selected.grade]} — 시군 내 관광지
                 안전점수의 중앙값입니다.
               </p>
             </div>
           ) : (
             <p className="text-sm text-slate-500">
-              오늘 점수를 계산할 관광지 데이터가 없습니다.
+              {dateLabel} 점수를 계산할 관광지 데이터가 없습니다.
             </p>
           )}
         </div>
@@ -60,13 +74,13 @@ export default function RegionPanel({
         </p>
         <div className="mt-5 flex flex-col gap-2">
           <Link
-            href={`/places?sigungu=${selected.sigunguCode}`}
+            href={hrefWith("/places", selected.sigunguCode)}
             className="rounded-xl bg-teal-600 px-4 py-2.5 text-center text-sm font-bold text-white transition-colors hover:bg-teal-700"
           >
             {selected.name} 관광지 보기
           </Link>
           <Link
-            href={`/courses?sigungu=${selected.sigunguCode}`}
+            href={hrefWith("/courses", selected.sigunguCode)}
             className="rounded-xl bg-slate-100 px-4 py-2.5 text-center text-sm font-bold text-slate-700 transition-colors hover:bg-slate-200"
           >
             안전 코스 만들기
