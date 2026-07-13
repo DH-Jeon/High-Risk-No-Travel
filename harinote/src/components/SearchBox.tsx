@@ -84,30 +84,16 @@ export default function SearchBox({
           <legend className="mb-2 text-sm font-semibold text-slate-600">
             언제 가시나요?
           </legend>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { label: "오늘", value: "" },
-              { label: "내일", value: isoAfter(1) },
-              { label: "모레", value: isoAfter(2) },
-              { label: "글피", value: isoAfter(3) },
-            ].map((d) => (
-              <label key={d.label} className="cursor-pointer">
-                <input
-                  type="radio"
-                  name="date"
-                  value={d.value}
-                  defaultChecked={d.value === ""}
-                  className="peer sr-only"
-                />
-                <span className="inline-block rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 transition-colors peer-checked:bg-sky-600 peer-checked:text-white peer-checked:ring-sky-600 peer-focus-visible:ring-2 peer-focus-visible:ring-sky-500 hover:bg-sky-50">
-                  {d.label}
-                </span>
-              </label>
-            ))}
-            <span className="self-center text-xs text-slate-400">
-              더 먼 날짜는 결과 화면의 달력에서 고를 수 있어요
-            </span>
-          </div>
+          {/* 기본값 = 오늘. 오늘 날짜는 parseDate에서 "오늘 모드"로 처리된다 */}
+          <input
+            type="date"
+            name="date"
+            defaultValue={todayISOSeoul()}
+            min={todayISOSeoul()}
+            max={isoAfter(366)}
+            aria-label="여행 날짜"
+            className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500"
+          />
         </fieldset>
       )}
 
