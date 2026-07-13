@@ -30,6 +30,23 @@ export function hasLiveRiskKeys(): boolean {
 /** 전체 실패 경고는 프로세스당 1회만 — 2,091곳 순회 시 로그 폭주 방지 */
 let warnedAllSourcesFailed = false;
 
+/**
+ * 기상청 격자 선택.
+ * 기본은 시군 대표점(시군청 소재지) — 시군당 1회 호출 + 캐시.
+ * 단 산악형(outdoor_mountain)은 시군청과 표고 차이가 커서(강원은 최대 1,000m+)
+ * 대표점 예보가 실제 기상과 크게 어긋난다 → 자기 좌표 격자를 쓴다.
+ * 격자(~5km) 단위로 캐시되므로 인접 산악지끼리는 슬롯을 공유해 호출 폭증은 없다.
+ */
+export function gridPointFor(
+  place: Pick<Place, "envType" | "sigunguCode" | "lat" | "lng">,
+): { nx: number; ny: number } {
+  const seat =
+    place.envType !== "outdoor_mountain" && place.sigunguCode !== undefined
+      ? SIGUNGU_SEATS[place.sigunguCode]
+      : undefined;
+  return latLngToGrid(seat?.lat ?? place.lat, seat?.lng ?? place.lng);
+}
+
 export async function getLiveRiskInput(
   place: Pick<Place, "contentId" | "envType" | "sigunguCode" | "lat" | "lng">,
 ): Promise<RiskInput> {
@@ -42,10 +59,8 @@ export async function getLiveRiskInput(
     input.emergencyRoomKm = Math.round(erKm * 10) / 10;
   }
 
-  // 시군 대표점(시군청 소재지) 격자로 호출 — 시군당 1회 + 1시간 캐시.
-  // sigunguCode가 없으면 place 좌표로 격자 계산 (해당 격자만 별도 캐시 슬롯).
-  const seat = place.sigunguCode !== undefined ? SIGUNGU_SEATS[place.sigunguCode] : undefined;
-  const { nx, ny } = latLngToGrid(seat?.lat ?? place.lat, seat?.lng ?? place.lng);
+  // 격자 선택: 기본은 시군 대표점, 산악형은 자기 좌표 (gridPointFor 참고)
+  const { nx, ny } = gridPointFor(place);
 
   const [weather, pm25, forestFire] = await Promise.allSettled([
     fetchKmaDailyWeather(nx, ny),
