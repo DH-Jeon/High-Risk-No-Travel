@@ -23,33 +23,37 @@ function toCardSummary(overview: string): string {
   return cut > 40 ? overview.slice(0, cut + 1) : slice.trimEnd() + "…";
 }
 
-const places: { contentId: number; title: string }[] = JSON.parse(
-  readFileSync(PLACES_PATH, "utf8"),
-);
-const out: Record<string, string> = existsSync(OUT_PATH)
-  ? JSON.parse(readFileSync(OUT_PATH, "utf8"))
-  : {};
+async function main() {
+  const places: { contentId: number; title: string }[] = JSON.parse(
+    readFileSync(PLACES_PATH, "utf8"),
+  );
+  const out: Record<string, string> = existsSync(OUT_PATH)
+    ? JSON.parse(readFileSync(OUT_PATH, "utf8"))
+    : {};
 
-let done = 0;
-let fetched = 0;
-for (const p of places) {
-  done++;
-  const key = String(p.contentId);
-  if (out[key]) continue;
+  let done = 0;
+  let fetched = 0;
+  for (const p of places) {
+    done++;
+    const key = String(p.contentId);
+    if (out[key]) continue;
 
-  const overview = await fetchPlaceOverview(p.contentId);
-  if (overview) {
-    out[key] = toCardSummary(overview);
-    fetched++;
+    const overview = await fetchPlaceOverview(p.contentId);
+    if (overview) {
+      out[key] = toCardSummary(overview);
+      fetched++;
+    }
+    if (fetched > 0 && fetched % 100 === 0) {
+      writeFileSync(OUT_PATH, JSON.stringify(out, null, 0));
+      console.log(`진행 ${done}/${places.length} — 수집 ${fetched}건 (중간 저장)`);
+    }
+    await new Promise((r) => setTimeout(r, 80));
   }
-  if (fetched > 0 && fetched % 100 === 0) {
-    writeFileSync(OUT_PATH, JSON.stringify(out, null, 0));
-    console.log(`진행 ${done}/${places.length} — 수집 ${fetched}건 (중간 저장)`);
-  }
-  await new Promise((r) => setTimeout(r, 80));
+
+  writeFileSync(OUT_PATH, JSON.stringify(out, null, 0));
+  console.log(
+    `완료: ${Object.keys(out).length}/${places.length}곳 소개문 저장 → ${OUT_PATH}`,
+  );
 }
 
-writeFileSync(OUT_PATH, JSON.stringify(out, null, 0));
-console.log(
-  `완료: ${Object.keys(out).length}/${places.length}곳 소개문 저장 → ${OUT_PATH}`,
-);
+main();
