@@ -12,8 +12,14 @@ const GRADES: RiskLevel[] = ["low", "moderate", "high"];
 /** 홈 대시보드 — 좌측 강원 지도 + 우측 시군 패널, 선택 상태 공유 */
 export default function RegionDashboard({
   regions,
+  dateLabel,
+  extraQuery,
 }: {
   regions: RegionSummary[];
+  /** 점수 기준 라벨 (기본 "오늘") */
+  dateLabel?: string;
+  /** 시군 링크에 유지할 조건 (profile, date) */
+  extraQuery?: Record<string, string | undefined>;
 }) {
   const [selectedCode, setSelectedCode] = useState<number | null>(null);
 
@@ -60,6 +66,8 @@ export default function RegionDashboard({
         selectedCode={selectedCode}
         onSelect={setSelectedCode}
         onClear={() => setSelectedCode(null)}
+        dateLabel={dateLabel}
+        extraQuery={extraQuery}
       />
     </div>
   );

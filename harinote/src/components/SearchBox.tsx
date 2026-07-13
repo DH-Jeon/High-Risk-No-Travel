@@ -1,39 +1,19 @@
 import type { Profile } from "@/lib/safety/types";
-import { PROFILE_LABEL } from "@/lib/safety/types";
-import { todayISOSeoul } from "@/lib/date";
 
 interface Props {
   defaultQuery?: string;
-  /** true면 동행 프로필 라디오 칩을 폼 안에 포함 (홈 히어로용) */
-  withProfile?: boolean;
-  /** true면 여행 날짜 라디오 칩을 폼 안에 포함 (홈 히어로용) */
-  withDate?: boolean;
-  /** withProfile=false일 때 현재 프로필을 hidden으로 유지 */
+  /** 현재 프로필 — hidden으로 검색 결과에 유지 */
   profile?: Profile;
+  /** 현재 여행 날짜(YYYY-MM-DD) — hidden으로 검색 결과에 유지 */
+  date?: string;
   compact?: boolean;
-}
-
-/**
- * 홈 온보딩 프로필 — 자차(own_car)는 도로 위험 데이터 미연동으로 점수에
- * 영향이 없어 제외한다 (데이터 연동 시 복원).
- */
-const ONBOARDING_PROFILES = (Object.keys(PROFILE_LABEL) as Profile[]).filter(
-  (p) => p !== "own_car",
-);
-
-/** 오늘(KST) 기준 +days일의 YYYY-MM-DD */
-function isoAfter(days: number): string {
-  return new Date(Date.parse(`${todayISOSeoul()}T00:00:00Z`) + days * 86_400_000)
-    .toISOString()
-    .slice(0, 10);
 }
 
 /** GET 폼 검색창 — JS 없이 /places?q=&profile=&date= 로 이동 */
 export default function SearchBox({
   defaultQuery = "",
-  withProfile = false,
-  withDate = false,
   profile = "default",
+  date,
   compact = false,
 }: Props) {
   return (
@@ -66,9 +46,10 @@ export default function SearchBox({
             compact ? "py-1.5 text-sm" : "py-2.5 text-base sm:text-lg"
           }`}
         />
-        {!withProfile && profile !== "default" && (
+        {profile !== "default" && (
           <input type="hidden" name="profile" value={profile} />
         )}
+        {date && <input type="hidden" name="date" value={date} />}
         <button
           type="submit"
           className={`shrink-0 rounded-xl bg-teal-600 font-bold text-white transition-colors hover:bg-teal-700 ${
@@ -78,48 +59,6 @@ export default function SearchBox({
           검색
         </button>
       </div>
-
-      {withDate && (
-        <fieldset className="mt-4">
-          <legend className="mb-2 text-sm font-semibold text-slate-600">
-            언제 가시나요?
-          </legend>
-          {/* 기본값 = 오늘. 오늘 날짜는 parseDate에서 "오늘 모드"로 처리된다 */}
-          <input
-            type="date"
-            name="date"
-            defaultValue={todayISOSeoul()}
-            min={todayISOSeoul()}
-            max={isoAfter(366)}
-            aria-label="여행 날짜"
-            className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500"
-          />
-        </fieldset>
-      )}
-
-      {withProfile && (
-        <fieldset className="mt-4">
-          <legend className="mb-2 text-sm font-semibold text-slate-600">
-            누구와 함께 가시나요?
-          </legend>
-          <div className="flex flex-wrap gap-2">
-            {ONBOARDING_PROFILES.map((p) => (
-              <label key={p} className="cursor-pointer">
-                <input
-                  type="radio"
-                  name="profile"
-                  value={p}
-                  defaultChecked={p === "default"}
-                  className="peer sr-only"
-                />
-                <span className="inline-block rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 transition-colors peer-checked:bg-teal-600 peer-checked:text-white peer-checked:ring-teal-600 peer-focus-visible:ring-2 peer-focus-visible:ring-teal-500 hover:bg-teal-50">
-                  {PROFILE_LABEL[p]}
-                </span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-      )}
     </form>
   );
 }

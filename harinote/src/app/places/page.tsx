@@ -89,7 +89,7 @@ export default async function PlacesPage({ searchParams }: Props) {
     <div className="mx-auto max-w-6xl px-4 py-8 lg:grid lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start lg:gap-8">
       <div>
         <div className="max-w-2xl">
-          <SearchBox defaultQuery={q} profile={profile} compact />
+          <SearchBox defaultQuery={q} profile={profile} date={date} compact />
         </div>
 
       <div className="mt-5 space-y-3">
