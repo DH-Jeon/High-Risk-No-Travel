@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Profile } from "@/lib/safety/types";
 import { PROFILE_LABEL } from "@/lib/safety/types";
-import { buildQuery, profileParam } from "@/components/search-params";
+import { buildQuery } from "@/components/search-params";
 import LinkLabel from "@/components/LinkLabel";
 
 const PROFILE_ICON: Record<Profile, string> = {
@@ -34,7 +34,8 @@ export default function ProfileChips({
         .filter((p) => !exclude.includes(p))
         .map((p) => {
         const active = p === current;
-        const href = `${basePath}${buildQuery({ ...extraParams, profile: profileParam(p) })}`;
+        // 항상 명시적 profile 파라미터 — "기본" 선택이 쿠키 기억값에 덮이지 않도록
+        const href = `${basePath}${buildQuery({ ...extraParams, profile: p })}`;
         return (
           <Link
             key={p}

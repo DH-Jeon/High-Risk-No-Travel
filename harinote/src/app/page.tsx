@@ -13,10 +13,13 @@ import RegionDashboard from "@/components/RegionDashboard";
 import {
   parseDate,
   parseProfile,
+  parseTransport,
   profileParam,
   buildQuery,
   type SearchParamValue,
 } from "@/components/search-params";
+import { savedProfile, savedTransport, type Transport } from "@/lib/prefs";
+import PrefsPersist from "@/components/PrefsPersist";
 
 // 검색어별 결과가 실제로 존재하는지 확인된 목록 (gangwon.json 기준 — "경포해변"은 0건이라 "경포"로)
 const POPULAR = ["남이섬", "설악산", "경포", "정동진", "춘천", "속초"];
@@ -27,7 +30,13 @@ interface Props {
 
 export default async function Home({ searchParams }: Props) {
   const sp = await searchParams;
-  const profile = parseProfile(sp.profile);
+  // URL 파라미터 우선, 없으면 쿠키에 기억된 조건 (한 번 고르면 다음 방문에도 유지)
+  const profile =
+    sp.profile !== undefined
+      ? parseProfile(sp.profile)
+      : ((await savedProfile()) ?? "default");
+  const transport: Transport =
+    parseTransport(sp.tr) ?? (await savedTransport()) ?? "transit";
   const date = parseDate(sp.date);
 
   // 선택한 조건(언제·누구와)이 지도·시군 요약에 바로 반영된다
@@ -50,7 +59,9 @@ export default async function Home({ searchParams }: Props) {
             <SearchBox profile={profile} date={date} />
           </div>
 
-          {/* 온보딩 — 누르면 지도·점수가 그 조건으로 바로 갱신된다 */}
+          <PrefsPersist profile={profile} transport={transport} />
+
+          {/* 온보딩 — 누르면 지도·점수가 그 조건으로 바로 갱신되고, 선택은 기억된다 */}
           <div className="mt-4 space-y-3">
             <div>
               <p className="mb-1.5 text-sm font-semibold text-slate-600">
@@ -79,6 +90,38 @@ export default async function Home({ searchParams }: Props) {
                 >
                   🐶 반려동물과 함께
                 </Link>
+              </div>
+            </div>
+            <div>
+              <p className="mb-1.5 text-sm font-semibold text-slate-600">
+                어떻게 이동하시나요?{" "}
+                <span className="font-normal text-slate-400">
+                  — 한 번 고르면 기억돼요
+                </span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    { key: "transit", label: "🚌 대중교통" },
+                    { key: "car", label: "🚗 자차" },
+                  ] as const
+                ).map((t) => (
+                  <Link
+                    key={t.key}
+                    href={`/${buildQuery({ profile: profileParam(profile), date, tr: t.key })}`}
+                    aria-current={transport === t.key ? "true" : undefined}
+                    className={`inline-flex items-center rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+                      transport === t.key
+                        ? "bg-slate-700 text-white shadow-sm"
+                        : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    {t.label}
+                  </Link>
+                ))}
+                <span className="self-center text-xs text-slate-400">
+                  자차는 대체지·코스를 더 넓게 (30→50km) 찾아드려요
+                </span>
               </div>
             </div>
           </div>

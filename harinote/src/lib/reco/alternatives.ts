@@ -20,7 +20,10 @@ export interface Alternative extends PlaceWithSafety {
   distanceKm: number;
 }
 
+/** 대중교통 기준 후보 반경. 자차는 호출부에서 CAR_DISTANCE_KM 사용 */
 const MAX_DISTANCE_KM = 30;
+/** 자차 이동 시 후보 반경 — 더 먼 대체지도 현실적 선택지 */
+export const CAR_DISTANCE_KM = 50;
 const INDOOR_BONUS = 2;
 const DEFAULT_LIMIT = 4;
 
@@ -39,6 +42,7 @@ export function recommendAlternatives(
   target: PlaceWithSafety,
   candidates: PlaceWithSafety[],
   limit: number = DEFAULT_LIMIT,
+  maxKm: number = MAX_DISTANCE_KM,
 ): Alternative[] {
   const preferIndoor =
     target.safety.weatherRisk >= RECO_WEATHER_RISK_INDOOR_THRESHOLD;
@@ -55,7 +59,7 @@ export function recommendAlternatives(
       candidate.lat,
       candidate.lng,
     );
-    if (distanceKm > MAX_DISTANCE_KM) continue;
+    if (distanceKm > maxKm) continue;
 
     let rankScore = categorySimilarity(target, candidate);
     if (preferIndoor && candidate.envType === "indoor") rankScore += INDOOR_BONUS;
