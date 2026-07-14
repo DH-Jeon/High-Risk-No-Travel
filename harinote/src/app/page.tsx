@@ -82,7 +82,6 @@ export default async function Home({ searchParams }: Props) {
                   basePath="/"
                   current={profile}
                   extraParams={{ date }}
-                  exclude={["own_car"]}
                 />
                 <Link
                   href={`/places${buildQuery({ pet: "1", profile: profileParam(profile), date })}`}
