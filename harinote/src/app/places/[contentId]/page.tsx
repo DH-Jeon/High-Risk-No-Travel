@@ -20,6 +20,7 @@ import PlaceGallery from "@/components/PlaceGallery";
 import PlaceMap from "@/components/PlaceMap";
 import { GallerySection, OverviewSection, PetSection, ReviewsSection } from "./sections";
 import { kidsAmenityLabels, kidsInfoOf } from "@/lib/tour/kids-friendly";
+import { summaryOf } from "@/lib/tour/summaries";
 import ProfileChips from "@/components/ProfileChips";
 import RiskBreakdownBar from "@/components/RiskBreakdownBar";
 import RiskTypeBadge from "@/components/RiskTypeBadge";
@@ -151,6 +152,25 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
               <span className="ml-2 text-slate-400">{place.tel}</span>
             )}
           </p>
+
+          {/* AI 3줄 요약 — 이름·주소 바로 아래에서 "어떤 곳인지" 즉시 파악 */}
+          {(() => {
+            const summary = summaryOf(place.contentId);
+            if (!summary) return null;
+            return (
+              <div className="mt-3 rounded-xl bg-sky-50/60 px-4 py-3 ring-1 ring-sky-100">
+                <p className="text-xs font-bold text-sky-700">
+                  ⚡ 핵심 3줄
+                  <span className="ml-1.5 font-medium text-sky-400">AI 요약</span>
+                </p>
+                <ul className="mt-1 space-y-0.5 text-sm leading-relaxed text-slate-700">
+                  {summary.map((line) => (
+                    <li key={line}>· {line}</li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()}
 
           <div className="mt-6">
             {dateSafety?.seasonal ? (
