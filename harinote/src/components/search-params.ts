@@ -73,6 +73,11 @@ export function parsePet(v: SearchParamValue): boolean {
   return first(v) === "1";
 }
 
+/** 유아 동반 시설 필터 — kids=1일 때만 true */
+export function parseKids(v: SearchParamValue): boolean {
+  return first(v) === "1";
+}
+
 /** 위험 유형 필터 — RISK_TYPE_META에 있는 키만 허용 (general·오류는 전체) */
 export function parseRiskType(
   v: SearchParamValue,

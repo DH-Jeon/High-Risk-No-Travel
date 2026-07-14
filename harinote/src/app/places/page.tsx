@@ -20,6 +20,7 @@ import {
   first,
   parseContentTypeId,
   parseDate,
+  parseKids,
   parsePage,
   parsePet,
   parseProfile,
@@ -29,6 +30,7 @@ import {
   type SearchParamValue,
 } from "@/components/search-params";
 import { isPetFriendly } from "@/lib/tour/pet-friendly";
+import { isKidsFriendly } from "@/lib/tour/kids-friendly";
 import { getRiskType, RISK_TYPE_META } from "@/lib/tour/risk-types";
 import { SIGUNGU_SEATS } from "@/lib/risk/regions";
 
@@ -63,6 +65,9 @@ export default async function PlacesPage({ searchParams }: Props) {
   // 반려동물 동반 필터 (TourAPI detailPetTour2 수집분)
   const pet = parsePet(sp.pet);
   const petParam = pet ? "1" : undefined;
+  // 유아 동반 시설 필터 (한국문화정보원 2022 데이터 매칭분)
+  const kids = parseKids(sp.kids);
+  const kidsParam = kids ? "1" : undefined;
   // 위험 유형 필터 (분석 클러스터 7유형) — 같은 유형끼리 비교
   const riskType = parseRiskType(sp.rt);
 
@@ -74,6 +79,7 @@ export default async function PlacesPage({ searchParams }: Props) {
     profile: profileParam(profile),
     date,
     pet: petParam,
+    kids: kidsParam,
     rt: riskType,
   };
 
@@ -88,6 +94,7 @@ export default async function PlacesPage({ searchParams }: Props) {
       matchesPlaceQuery(p, { q: q || undefined, contentTypeId, sigunguCode }),
     )
     .filter((p) => !pet || isPetFriendly(p.contentId))
+    .filter((p) => !kids || isKidsFriendly(p.contentId))
     .filter((p) => !riskType || getRiskType(p.contentId) === riskType)
     .sort((a, b) => b.safety.score - a.safety.score);
 
@@ -188,6 +195,17 @@ export default async function PlacesPage({ searchParams }: Props) {
             }`}
           >
             🐶 반려동물 동반
+          </Link>
+          <Link
+            href={`/places${buildQuery({ ...currentParams, kids: kids ? undefined : "1" })}`}
+            aria-pressed={kids}
+            className={`inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+              kids
+                ? "bg-pink-500 text-white shadow-sm"
+                : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-pink-50 hover:text-pink-700"
+            }`}
+          >
+            👶 유아 동반 시설
           </Link>
         </div>
       </div>
