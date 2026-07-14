@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { getRegionSummaries } from "@/lib/risk/region-summary";
 import FestivalSection from "@/components/FestivalSection";
 import { hasLiveRiskKeys } from "@/lib/risk/live";
+import { hasForestKey } from "@/lib/risk/forest";
 import { medicalDataSource } from "@/lib/risk/medical";
 import { formatKoreanDate } from "@/lib/date";
 import SearchBox from "@/components/SearchBox";
@@ -121,7 +122,9 @@ export default async function Home({ searchParams }: Props) {
           <p className="mt-1">
             데이터 출처: 한국관광공사 TourAPI · {medicalDataSource()}
             {hasLiveRiskKeys()
-              ? " · 기상청 · AirKorea(한국환경공단). 산불위험은 실연동 준비 중인 시범값입니다."
+              ? hasForestKey()
+                ? " · 기상청 · AirKorea(한국환경공단) · 산림청(산불위험예보)."
+                : " · 기상청 · AirKorea(한국환경공단). 산불위험은 실연동 준비 중인 시범값입니다."
               : ". 기상·미세먼지·산불위험은 시범값 기준입니다."}
           </p>
         </footer>
