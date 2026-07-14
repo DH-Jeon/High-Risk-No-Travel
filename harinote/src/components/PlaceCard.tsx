@@ -8,6 +8,7 @@ import SafetyScoreBadge from "@/components/SafetyScoreBadge";
 import { buildQuery, profileParam } from "@/components/search-params";
 import { cardSummary } from "@/lib/tour/overviews";
 import { isPetFriendly } from "@/lib/tour/pet-friendly";
+import { isKidsFriendly } from "@/lib/tour/kids-friendly";
 
 /** imageUrl 없는 관광지의 플레이스홀더 — 환경 유형별 이모지·그라데이션 */
 const ENV_PLACEHOLDER: Record<PlaceEnvType, { emoji: string; bg: string }> = {
@@ -64,6 +65,11 @@ export default function PlaceCard({ place, profile, date, footer }: Props) {
           {isPetFriendly(place.contentId) && (
             <span className="rounded-full bg-amber-100/95 px-2 py-0.5 text-[11px] font-semibold text-amber-800 shadow-sm">
               🐶 동반
+            </span>
+          )}
+          {isKidsFriendly(place.contentId) && (
+            <span className="rounded-full bg-pink-100/95 px-2 py-0.5 text-[11px] font-semibold text-pink-800 shadow-sm">
+              👶 유아
             </span>
           )}
         </div>
