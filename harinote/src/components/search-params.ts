@@ -1,6 +1,7 @@
 /** URL 쿼리 파라미터 파싱 유틸 — UI 전용 */
 import { PROFILE_LABEL, type Profile } from "@/lib/safety/types";
 import { dayOffsetSeoul, isValidISODate } from "@/lib/date";
+import { RISK_TYPE_META, type RiskTypeKey } from "@/lib/tour/risk-types";
 import { SIGUNGU_SEATS } from "@/lib/risk/regions";
 import {
   SUPPORTED_CONTENT_TYPE_IDS,
@@ -70,6 +71,21 @@ export function profileParam(profile: Profile): string | undefined {
 /** 반려동물 동반 필터 — pet=1일 때만 true */
 export function parsePet(v: SearchParamValue): boolean {
   return first(v) === "1";
+}
+
+/** 유아 동반 시설 필터 — kids=1일 때만 true */
+export function parseKids(v: SearchParamValue): boolean {
+  return first(v) === "1";
+}
+
+/** 위험 유형 필터 — RISK_TYPE_META에 있는 키만 허용 (general·오류는 전체) */
+export function parseRiskType(
+  v: SearchParamValue,
+): Exclude<RiskTypeKey, "general"> | undefined {
+  const s = first(v);
+  return s && s in RISK_TYPE_META
+    ? (s as Exclude<RiskTypeKey, "general">)
+    : undefined;
 }
 
 /**

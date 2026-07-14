@@ -7,6 +7,7 @@
 import type { PlaceEnvType } from "@/lib/tour/types";
 import { fetchPlaceImages } from "@/lib/tour/images";
 import { fetchPlaceOverview } from "@/lib/tour/overview";
+import { summaryOf } from "@/lib/tour/summaries";
 import { fetchPlacePetInfo } from "@/lib/tour/pet";
 import { fetchBlogReviews } from "@/lib/review/naver-blog";
 import PlaceGallery from "@/components/PlaceGallery";
@@ -43,9 +44,23 @@ export async function OverviewSection({
 }) {
   const overview = (await fetchPlaceOverview(contentId)) ?? fallback;
   if (!overview) return null;
+  const summary = summaryOf(contentId);
   return (
     <section>
       <h2 className="text-lg font-bold text-slate-900">소개</h2>
+      {summary && (
+        <div className="mt-2 rounded-xl bg-sky-50/60 p-4 ring-1 ring-sky-100">
+          <p className="text-xs font-bold text-sky-700">
+            ⚡ 핵심 3줄
+            <span className="ml-1.5 font-medium text-sky-400">AI 요약</span>
+          </p>
+          <ul className="mt-1.5 space-y-0.5 text-sm leading-relaxed text-slate-700">
+            {summary.map((line) => (
+              <li key={line}>· {line}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       <p className="mt-2 rounded-xl bg-white p-4 text-sm leading-relaxed text-slate-600 ring-1 ring-slate-200">
         {overview}
       </p>

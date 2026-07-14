@@ -19,6 +19,7 @@ import PlaceCard from "@/components/PlaceCard";
 import PlaceGallery from "@/components/PlaceGallery";
 import PlaceMap from "@/components/PlaceMap";
 import { GallerySection, OverviewSection, PetSection, ReviewsSection } from "./sections";
+import { kidsAmenityLabels, kidsInfoOf } from "@/lib/tour/kids-friendly";
 import ProfileChips from "@/components/ProfileChips";
 import RiskBreakdownBar from "@/components/RiskBreakdownBar";
 import RiskTypeBadge from "@/components/RiskTypeBadge";
@@ -284,6 +285,44 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
           <Suspense fallback={null}>
             <PetSection contentId={contentId} />
           </Suspense>
+
+          {/* 유아 동반 편의시설 — 한국문화정보원 데이터 (없으면 숨김) */}
+          {(() => {
+            const kids = kidsInfoOf(place.contentId);
+            if (!kids) return null;
+            const amenities = kidsAmenityLabels(kids);
+            return (
+              <section>
+                <h2 className="text-lg font-bold text-slate-900">
+                  👶 아이와 함께
+                </h2>
+                <div className="mt-2 rounded-xl bg-white p-4 text-sm leading-relaxed text-slate-600 ring-1 ring-slate-200">
+                  {amenities.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {amenities.map((a) => (
+                        <span
+                          key={a}
+                          className="rounded-full bg-pink-50 px-2.5 py-0.5 text-xs font-semibold text-pink-700 ring-1 ring-pink-200"
+                        >
+                          {a}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {kids.age && (
+                    <p className={amenities.length > 0 ? "mt-2" : ""}>
+                      <span className="font-semibold text-slate-700">입장 가능 나이: </span>
+                      {kids.age}
+                    </p>
+                  )}
+                  <p className="mt-2 text-xs text-slate-400">
+                    한국문화정보원 유아 동반 시설 데이터 (2022년 조사 기준) —
+                    방문 전 시설에 확인을 권장해요.
+                  </p>
+                </div>
+              </section>
+            );
+          })()}
 
           {/* 안전한 대체지 추천 */}
           <section>
