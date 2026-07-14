@@ -23,11 +23,13 @@ import {
   parsePage,
   parsePet,
   parseProfile,
+  parseRiskType,
   parseSigungu,
   profileParam,
   type SearchParamValue,
 } from "@/components/search-params";
 import { isPetFriendly } from "@/lib/tour/pet-friendly";
+import { getRiskType, RISK_TYPE_META } from "@/lib/tour/risk-types";
 import { SIGUNGU_SEATS } from "@/lib/risk/regions";
 
 const PAGE_SIZE = 24;
@@ -61,6 +63,19 @@ export default async function PlacesPage({ searchParams }: Props) {
   // 반려동물 동반 필터 (TourAPI detailPetTour2 수집분)
   const pet = parsePet(sp.pet);
   const petParam = pet ? "1" : undefined;
+  // 위험 유형 필터 (분석 클러스터 7유형) — 같은 유형끼리 비교
+  const riskType = parseRiskType(sp.rt);
+
+  // 링크들이 공유하는 현재 조건 — 각 링크는 바꿀 파라미터만 덮어쓴다
+  const currentParams = {
+    q: q || undefined,
+    type: contentTypeId,
+    sigungu: sigunguCode,
+    profile: profileParam(profile),
+    date,
+    pet: petParam,
+    rt: riskType,
+  };
 
   // 기본 정렬 = 안전점수 높은 순 — "어디가 안전한가"가 서비스의 축이므로
   // 데이터 순서(사실상 가나다)가 아니라 점수가 목록의 기준이어야 한다.
@@ -73,6 +88,7 @@ export default async function PlacesPage({ searchParams }: Props) {
       matchesPlaceQuery(p, { q: q || undefined, contentTypeId, sigunguCode }),
     )
     .filter((p) => !pet || isPetFriendly(p.contentId))
+    .filter((p) => !riskType || getRiskType(p.contentId) === riskType)
     .sort((a, b) => b.safety.score - a.safety.score);
 
   // 서버 사이드 페이지네이션 — 24건/페이지.
@@ -82,15 +98,7 @@ export default async function PlacesPage({ searchParams }: Props) {
   const pagePlaces = places.slice(start, start + PAGE_SIZE);
 
   const pageHref = (p: number) =>
-    `/places${buildQuery({
-      q: q || undefined,
-      type: contentTypeId,
-      sigungu: sigunguCode,
-      profile: profileParam(profile),
-      date,
-      pet: petParam,
-      page: p === 1 ? undefined : p,
-    })}`;
+    `/places${buildQuery({ ...currentParams, page: p === 1 ? undefined : p })}`;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 lg:grid lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start lg:gap-8">
@@ -100,18 +108,11 @@ export default async function PlacesPage({ searchParams }: Props) {
         </div>
 
       <div className="mt-5 space-y-3">
-        {/* 유형 필터 탭 */}
-        <nav aria-label="관광지 유형 필터" className="flex flex-wrap gap-2">
+        {/* 콘텐츠 종류 탭 (관광지/문화시설/음식점) */}
+        <nav aria-label="관광지 종류 필터" className="flex flex-wrap gap-2">
           {TYPE_TABS.map((tab) => {
             const active = tab.value === contentTypeId;
-            const href = `/places${buildQuery({
-              q: q || undefined,
-              type: tab.value,
-              sigungu: sigunguCode,
-              profile: profileParam(profile),
-              date,
-              pet: petParam,
-            })}`;
+            const href = `/places${buildQuery({ ...currentParams, type: tab.value })}`;
             return (
               <Link
                 key={tab.label}
@@ -129,17 +130,45 @@ export default async function PlacesPage({ searchParams }: Props) {
           })}
         </nav>
 
+        {/* 위험 유형 필터 — 분석 클러스터 7유형, 같은 유형끼리 점수 비교 */}
+        <nav aria-label="위험 유형 필터" className="flex flex-wrap gap-2">
+          <Link
+            href={`/places${buildQuery({ ...currentParams, rt: undefined })}`}
+            aria-current={riskType === undefined ? "true" : undefined}
+            className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+              riskType === undefined
+                ? "bg-slate-700 text-white"
+                : "bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-100"
+            }`}
+          >
+            모든 유형
+          </Link>
+          {(Object.keys(RISK_TYPE_META) as (keyof typeof RISK_TYPE_META)[]).map(
+            (key) => {
+              const meta = RISK_TYPE_META[key];
+              const active = riskType === key;
+              return (
+                <Link
+                  key={key}
+                  href={`/places${buildQuery({ ...currentParams, rt: active ? undefined : key })}`}
+                  aria-current={active ? "true" : undefined}
+                  title={meta.caution}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 transition-colors ${
+                    active ? "ring-2 ring-slate-500 " + meta.pill : meta.pill + " opacity-80 hover:opacity-100"
+                  }`}
+                >
+                  {meta.emoji} {meta.label}
+                </Link>
+              );
+            },
+          )}
+        </nav>
+
         {/* 여행 날짜 전환 */}
         <DateChips
           basePath="/places"
           current={date}
-          extraParams={{
-            q: q || undefined,
-            type: contentTypeId,
-            sigungu: sigunguCode,
-            profile: profileParam(profile),
-            pet: petParam,
-          }}
+          extraParams={{ ...currentParams, date: undefined }}
         />
 
         {/* 동행 프로필 전환 + 반려동물 필터 */}
@@ -147,23 +176,10 @@ export default async function PlacesPage({ searchParams }: Props) {
           <ProfileChips
             basePath="/places"
             current={profile}
-            extraParams={{
-              q: q || undefined,
-              type: contentTypeId,
-              sigungu: sigunguCode,
-              date,
-              pet: petParam,
-            }}
+            extraParams={{ ...currentParams, profile: undefined }}
           />
           <Link
-            href={`/places${buildQuery({
-              q: q || undefined,
-              type: contentTypeId,
-              sigungu: sigunguCode,
-              profile: profileParam(profile),
-              date,
-              pet: pet ? undefined : "1",
-            })}`}
+            href={`/places${buildQuery({ ...currentParams, pet: pet ? undefined : "1" })}`}
             aria-pressed={pet}
             className={`inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
               pet
@@ -208,13 +224,7 @@ export default async function PlacesPage({ searchParams }: Props) {
         </span>
         {sigunguName && (
           <Link
-            href={`/places${buildQuery({
-              q: q || undefined,
-              type: contentTypeId,
-              profile: profileParam(profile),
-              date,
-              pet: petParam,
-            })}`}
+            href={`/places${buildQuery({ ...currentParams, sigungu: undefined })}`}
             className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-200"
           >
             {sigunguName} 필터 해제 ✕

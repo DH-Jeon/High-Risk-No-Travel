@@ -91,6 +91,11 @@ const forestResponseSchema = z.object({
   }),
 });
 
+/** 산불위험 실연동 키 존재 여부 — 출처 각주 문구 분기용 */
+export function hasForestKey(): boolean {
+  return Boolean(process.env.FOREST_API_KEY ?? process.env.TOUR_API_KEY);
+}
+
 function requireApiKey(): string {
   // 같은 data.go.kr 계정 키 — 전용 키가 없으면 공용 키(TOUR_API_KEY)를 재사용
   const key = process.env.FOREST_API_KEY ?? process.env.TOUR_API_KEY;
