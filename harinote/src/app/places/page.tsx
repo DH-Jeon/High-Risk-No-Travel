@@ -28,7 +28,6 @@ import {
   parsePage,
   parsePet,
   parseProfile,
-  parseRiskType,
   parseSigungu,
   parseTransport,
   profileParam,
@@ -36,7 +35,6 @@ import {
 } from "@/components/search-params";
 import { isPetFriendly } from "@/lib/tour/pet-friendly";
 import { isKidsFriendly } from "@/lib/tour/kids-friendly";
-import { getRiskType, RISK_TYPE_META } from "@/lib/tour/risk-types";
 import { SIGUNGU_SEATS } from "@/lib/risk/regions";
 
 const PAGE_SIZE = 24;
@@ -73,8 +71,6 @@ export default async function PlacesPage({ searchParams }: Props) {
   // 유아 동반 시설 필터 (한국문화정보원 2022 데이터 매칭분)
   const kids = parseKids(sp.kids);
   const kidsParam = kids ? "1" : undefined;
-  // 위험 유형 필터 (분석 클러스터 7유형) — 같은 유형끼리 비교
-  const riskType = parseRiskType(sp.rt);
   // 이동 수단 (상세의 대체지·코스 반경에 반영) — URL 우선, 없으면 쿠키 기억값
   const transport =
     parseTransport(sp.tr) ?? (await savedTransport()) ?? "transit";
@@ -88,7 +84,6 @@ export default async function PlacesPage({ searchParams }: Props) {
     date,
     pet: petParam,
     kids: kidsParam,
-    rt: riskType,
     tr: transport === "transit" ? undefined : transport,
   };
 
@@ -104,7 +99,6 @@ export default async function PlacesPage({ searchParams }: Props) {
     )
     .filter((p) => !pet || isPetFriendly(p.contentId))
     .filter((p) => !kids || isKidsFriendly(p.contentId))
-    .filter((p) => !riskType || getRiskType(p.contentId) === riskType)
     .sort((a, b) => b.safety.score - a.safety.score);
 
   // 서버 사이드 페이지네이션 — 24건/페이지.
@@ -150,40 +144,6 @@ export default async function PlacesPage({ searchParams }: Props) {
               </Link>
             );
           })}
-        </nav>
-
-        {/* 위험 유형 필터 — 분석 클러스터 7유형, 같은 유형끼리 점수 비교 */}
-        <nav aria-label="위험 유형 필터" className="flex flex-wrap gap-2">
-          <Link
-            href={`/places${buildQuery({ ...currentParams, rt: undefined })}`}
-            aria-current={riskType === undefined ? "true" : undefined}
-            className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-              riskType === undefined
-                ? "bg-slate-700 text-white"
-                : "bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-100"
-            }`}
-          >
-            모든 유형
-          </Link>
-          {(Object.keys(RISK_TYPE_META) as (keyof typeof RISK_TYPE_META)[]).map(
-            (key) => {
-              const meta = RISK_TYPE_META[key];
-              const active = riskType === key;
-              return (
-                <Link
-                  key={key}
-                  href={`/places${buildQuery({ ...currentParams, rt: active ? undefined : key })}`}
-                  aria-current={active ? "true" : undefined}
-                  title={meta.caution}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 transition-colors ${
-                    active ? "ring-2 ring-slate-500 " + meta.pill : meta.pill + " opacity-80 hover:opacity-100"
-                  }`}
-                >
-                  {meta.emoji} {meta.label}
-                </Link>
-              );
-            },
-          )}
         </nav>
 
         {/* 여행 날짜 전환 */}
