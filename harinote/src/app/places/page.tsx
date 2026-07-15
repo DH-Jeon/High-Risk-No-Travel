@@ -15,6 +15,8 @@ import PlannerCard from "@/components/PlannerCard";
 import PopularSidebar from "@/components/PopularSidebar";
 import TravelPlannerPanel from "@/components/TravelPlannerPanel";
 import PlannerDrawer from "@/components/PlannerDrawer";
+import PrefsPersist from "@/components/PrefsPersist";
+import { savedTransport } from "@/lib/prefs";
 import ProfileChips from "@/components/ProfileChips";
 import SearchBox from "@/components/SearchBox";
 import {
@@ -28,6 +30,7 @@ import {
   parseProfile,
   parseRiskType,
   parseSigungu,
+  parseTransport,
   profileParam,
   type SearchParamValue,
 } from "@/components/search-params";
@@ -72,6 +75,9 @@ export default async function PlacesPage({ searchParams }: Props) {
   const kidsParam = kids ? "1" : undefined;
   // 위험 유형 필터 (분석 클러스터 7유형) — 같은 유형끼리 비교
   const riskType = parseRiskType(sp.rt);
+  // 이동 수단 (상세의 대체지·코스 반경에 반영) — URL 우선, 없으면 쿠키 기억값
+  const transport =
+    parseTransport(sp.tr) ?? (await savedTransport()) ?? "transit";
 
   // 링크들이 공유하는 현재 조건 — 각 링크는 바꿀 파라미터만 덮어쓴다
   const currentParams = {
@@ -83,6 +89,7 @@ export default async function PlacesPage({ searchParams }: Props) {
     pet: petParam,
     kids: kidsParam,
     rt: riskType,
+    tr: transport === "transit" ? undefined : transport,
   };
 
   // 기본 정렬 = 안전점수 높은 순 — "어디가 안전한가"가 서비스의 축이므로
@@ -117,7 +124,8 @@ export default async function PlacesPage({ searchParams }: Props) {
       </div>
 
       <div className="order-1 lg:order-2">
-        <div className="max-w-2xl">
+        {/* 모바일 검색 (md+는 네비바 전역 검색 사용) */}
+        <div className="max-w-2xl md:hidden">
           <SearchBox defaultQuery={q} profile={profile} date={date} compact />
         </div>
 
@@ -215,7 +223,35 @@ export default async function PlacesPage({ searchParams }: Props) {
             👶 유아 동반 시설
           </Link>
         </div>
+
+        {/* 이동 수단 — 대체지·코스 반경에 반영 (자차 50km), 선택은 기억됨 */}
+        <div className="flex flex-wrap items-center gap-2">
+          {(
+            [
+              { key: "transit", label: "🚌 대중교통" },
+              { key: "car", label: "🚗 자차" },
+            ] as const
+          ).map((t) => (
+            <Link
+              key={t.key}
+              href={`/places${buildQuery({ ...currentParams, tr: t.key === "transit" ? undefined : t.key })}`}
+              aria-current={transport === t.key ? "true" : undefined}
+              className={`inline-flex items-center rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+                transport === t.key
+                  ? "bg-slate-700 text-white shadow-sm"
+                  : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100"
+              }`}
+            >
+              {t.label}
+            </Link>
+          ))}
+          <span className="self-center text-xs text-slate-400">
+            자차는 상세 페이지에서 더 넓게 (30→50km) 추천해요
+          </span>
+        </div>
       </div>
+
+      <PrefsPersist profile={profile} transport={transport} />
 
       <p className="mt-6 flex flex-wrap items-center gap-2 text-sm text-slate-500">
         <span>
