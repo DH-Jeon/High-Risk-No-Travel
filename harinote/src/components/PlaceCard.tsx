@@ -55,7 +55,12 @@ export default function PlaceCard({ place, profile, date, footer }: Props) {
             </span>
           </div>
         )}
-        <div className="absolute left-3 top-3 flex gap-1.5">
+        {/* 점수 배지 — 이미지 좌상단에 크게 (목록에서 가장 중요한 정보) */}
+        <div className="absolute left-3 top-3">
+          <SafetyScoreBadge score={place.safety.score} grade={place.safety.grade} />
+        </div>
+        {/* 분류·동반 배지 — 우상단으로 이동 (점수와 분리) */}
+        <div className="absolute right-3 top-3 flex flex-wrap justify-end gap-1.5">
           <span className="rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-slate-700 shadow-sm">
             {CONTENT_TYPE_LABEL[place.contentTypeId]}
           </span>
@@ -88,7 +93,6 @@ export default function PlaceCard({ place, profile, date, footer }: Props) {
             </p>
           ) : null;
         })()}
-        <SafetyScoreBadge score={place.safety.score} grade={place.safety.grade} />
         {footer}
       </div>
     </Link>
