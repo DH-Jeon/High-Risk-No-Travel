@@ -38,6 +38,12 @@ export interface RiskInput {
   pm25: number;
   /** 산불위험 단계 1~4 (산림청: 1 낮음 ~ 4 심각) */
   forestFireLevel: 1 | 2 | 3 | 4;
+  /**
+   * 산사태 예보발령 0~2 (0 없음 / 1 주의보 / 2 경보 — 산림청 산사태정보시스템).
+   * 미제공(undefined)이면 점수엔진이 예보 강수량×지형으로 프록시 계산한다.
+   * 공식 발령이 있으면 프록시보다 상향으로만 반영(override) — landslideProxyLevel 주석 참조.
+   */
+  landslideLevel?: 0 | 1 | 2;
   /** 최근접 응급의료기관까지 거리 km (보건복지부) */
   emergencyRoomKm: number;
   /** 최근접 대피소까지 거리 km (행정안전부, 선택) */
@@ -51,7 +57,8 @@ export type RiskFactorKey =
   | "cold" // 한파 (계절 모드 전용 — 30년 기후 시나리오에서만 계산)
   | "rain_wind" // 강수·강풍
   | "pm" // 미세먼지
-  | "forest_fire" // 산불·산사태
+  | "forest_fire" // 산불
+  | "landslide" // 산사태 (강우×지형 프록시 + 산림청 예보발령 override)
   | "medical" // 응급의료 접근성
   | "shelter" // 대피소 접근성
   | "road"; // 이동 위험
