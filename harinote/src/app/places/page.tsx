@@ -11,8 +11,10 @@ import {
   CONTENT_TYPE_LABEL,
   SUPPORTED_CONTENT_TYPE_IDS,
 } from "@/lib/tour/types";
-import PlaceCard from "@/components/PlaceCard";
+import PlannerCard from "@/components/PlannerCard";
 import PopularSidebar from "@/components/PopularSidebar";
+import TravelPlannerPanel from "@/components/TravelPlannerPanel";
+import PlannerDrawer from "@/components/PlannerDrawer";
 import ProfileChips from "@/components/ProfileChips";
 import SearchBox from "@/components/SearchBox";
 import {
@@ -108,8 +110,13 @@ export default async function PlacesPage({ searchParams }: Props) {
     `/places${buildQuery({ ...currentParams, page: p === 1 ? undefined : p })}`;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 lg:grid lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start lg:gap-8">
-      <div>
+    <div className="mx-auto max-w-7xl px-4 py-8 lg:grid lg:grid-cols-[240px_minmax(0,1fr)_320px] lg:items-start lg:gap-6">
+      {/* 좌: 인기 관광지 (lg에서 왼쪽, 모바일은 본문 아래) */}
+      <div className="order-2 mt-10 lg:order-1 lg:mt-0">
+        <PopularSidebar profile={profile} />
+      </div>
+
+      <div className="order-1 lg:order-2">
         <div className="max-w-2xl">
           <SearchBox defaultQuery={q} profile={profile} date={date} compact />
         </div>
@@ -275,9 +282,9 @@ export default async function PlacesPage({ searchParams }: Props) {
         </div>
       ) : (
         <>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
             {pagePlaces.map((place) => (
-              <PlaceCard
+              <PlannerCard
                 key={place.contentId}
                 place={place}
                 profile={profile}
@@ -331,10 +338,13 @@ export default async function PlacesPage({ searchParams }: Props) {
       )}
       </div>
 
-      {/* 인기 관광지 사이드바 — lg 미만에서는 결과 아래 스택 */}
-      <div className="mt-10 lg:mt-0">
-        <PopularSidebar profile={profile} />
+      {/* 우: 내 여행 계획 (lg에서만 — 모바일은 하단 서랍) */}
+      <div className="order-3 hidden lg:block">
+        <TravelPlannerPanel />
       </div>
+
+      {/* 모바일 계획 서랍 (lg:hidden 내장) */}
+      <PlannerDrawer />
     </div>
   );
 }
