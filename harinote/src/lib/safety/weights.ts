@@ -258,6 +258,8 @@ export const PROFILE_WEIGHT: Record<Profile, ProfileWeight> = {
   with_kids: { heat: 1.0, pm: 1.0, medical: 1.0, road: 1.0, heatShiftC: 2, pmSensitive: true },
   /** 부모님 동반: 응급의료 ×1.5 + 폭염 임계값 2℃ 하향 (노약자도 폭염 취약계층) */
   with_seniors: { heat: 1.0, pm: 1.0, medical: 1.5, road: 1.0, heatShiftC: 2, pmSensitive: false },
+  /** 아이·부모님 동시: 폭염 하향 + 미세먼지 민감(아이) + 응급의료 ×1.5(부모님) */
+  with_kids_seniors: { heat: 1.0, pm: 1.0, medical: 1.5, road: 1.0, heatShiftC: 2, pmSensitive: true },
   /** 자차 이동: 도로 위험 민감 */
   own_car: { heat: 1.0, pm: 1.0, medical: 1.0, road: 1.5, heatShiftC: 0, pmSensitive: false },
 };

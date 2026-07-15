@@ -9,6 +9,7 @@ import {
   type PlanItem,
   removeItem,
   reorder,
+  setActiveDay as setActiveDayFn,
   setItemDay,
   setTrip,
   totalDays,
@@ -76,6 +77,7 @@ export function useTravelPlan() {
   const remove = useCallback((contentId: number) => write(removeItem(readPlan(), contentId)), []);
   const move = useCallback((from: number, to: number) => write(reorder(readPlan(), from, to)), []);
   const moveToDay = useCallback((contentId: number, day: number) => write(setItemDay(readPlan(), contentId, day)), []);
+  const setActiveDay = useCallback((day: number) => write(setActiveDayFn(readPlan(), day)), []);
   const setTripInfo = useCallback((nights: number, from?: string) => write(setTrip(readPlan(), nights, from)), []);
   const clear = useCallback(() => write(EMPTY_PLAN), []);
   const has = useCallback(
@@ -90,11 +92,13 @@ export function useTravelPlan() {
     remove,
     move,
     moveToDay,
+    setActiveDay,
     setTrip: setTripInfo,
     clear,
     has,
     count: plan.items.length,
     days: totalDays(plan),
+    activeDay: plan.activeDay ?? 1,
     byDay: itemsByDay(plan),
   };
 }

@@ -125,6 +125,20 @@ describe("heat — 기상청 폭염주의보 33℃ / 폭염경보 35℃", () => 
     expect(kids).toBeGreaterThan(0);
   });
 
+  it("아이·부모님 동시(with_kids_seniors): 폭염 하향 + 미먼 민감 + 의료 ×1.5 모두 적용", () => {
+    const b = run(
+      { tempC: 31, pm25: 40, emergencyRoomKm: 30 },
+      "outdoor_general",
+      "with_kids_seniors",
+    );
+    // 폭염: 31℃가 하향으로 주의보 구간(12점) — 아이·부모님 단독과 동일
+    expect(factor(b, "heat").points).toBe(12);
+    // 미세먼지: 민감군 곡선(나쁨 40 → 12점, 아이 효과)
+    expect(factor(b, "pm").points).toBe(12);
+    // 응급의료: ×1.5 (부모님 효과) — 30km는 상한 10
+    expect(factor(b, "medical").points).toBe(10);
+  });
+
   it("민감층 폭염도 상한 25에서 clamp", () => {
     expect(factor(run({ tempC: 38 }, "outdoor_general", "with_kids"), "heat").points).toBe(25);
   });

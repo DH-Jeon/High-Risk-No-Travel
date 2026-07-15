@@ -23,6 +23,8 @@ export interface TravelPlan {
   to?: string;
   /** 박수 (0=당일, 1=1박2일 …). 총 일수 = nights + 1 */
   nights?: number;
+  /** 현재 편집 중인 일차 (카드 담기가 이 일차로 들어감) */
+  activeDay?: number;
 }
 
 export const EMPTY_PLAN: TravelPlan = { items: [] };
@@ -77,6 +79,11 @@ export function reorder(plan: TravelPlan, from: number, to: number): TravelPlan 
   const [moved] = items.splice(from, 1);
   items.splice(to, 0, moved);
   return { ...plan, items };
+}
+
+/** 현재 편집 중인 일차 설정 */
+export function setActiveDay(plan: TravelPlan, day: number): TravelPlan {
+  return { ...plan, activeDay: day };
 }
 
 /** 특정 항목을 다른 일차로 이동 */
