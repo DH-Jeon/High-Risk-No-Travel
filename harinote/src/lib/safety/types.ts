@@ -4,13 +4,23 @@
  * 변경 시 데이터/점수엔진/UI 전 영역에 영향 — 수정은 메인 세션 승인 후에만.
  */
 
-/** 동행/이동 프로필 — 위험 가중치 차등 적용 (제안서: 부모님→의료×1.5, 아이→폭염·미세먼지×1.3, 자차→도로×1.5) */
-export type Profile = "default" | "with_kids" | "with_seniors" | "own_car";
+/**
+ * 동행/이동 프로필 — 위험 가중치 차등 적용.
+ * 아이·부모님은 동시 선택 가능 (with_kids_seniors) — 폭염 임계 하향은 둘 다,
+ * 미세먼지 민감군은 아이, 응급의료 가중은 부모님이 각각 적용된다.
+ */
+export type Profile =
+  | "default"
+  | "with_kids"
+  | "with_seniors"
+  | "with_kids_seniors"
+  | "own_car";
 
 export const PROFILE_LABEL: Record<Profile, string> = {
   default: "기본",
   with_kids: "아이 동반",
   with_seniors: "부모님 동반",
+  with_kids_seniors: "아이·부모님 동반",
   own_car: "자차 이동",
 };
 

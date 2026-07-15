@@ -13,9 +13,8 @@ import { formatKoreanDate } from "@/lib/date";
  * 일차마다 직선 루트+총거리. N박이면 1일차/2일차 탭. localStorage 영속.
  */
 export default function TravelPlannerPanel({ compact = false }: { compact?: boolean }) {
-  const { plan, hydrated, add, remove, move, moveToDay, clear, count, days, byDay } =
+  const { plan, hydrated, add, remove, move, moveToDay, setActiveDay, clear, count, days, activeDay, byDay } =
     useTravelPlan();
-  const [activeDay, setActiveDay] = useState(1);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropActive, setDropActive] = useState(false);
 

@@ -32,7 +32,7 @@ export default function PlannerCard({
   profile: Profile;
   date?: string;
 }) {
-  const { add, remove, has, hydrated } = useTravelPlan();
+  const { add, remove, has, hydrated, activeDay } = useTravelPlan();
   const item = planItemOf(place);
   const added = hydrated && has(place.contentId);
 
@@ -51,7 +51,7 @@ export default function PlannerCard({
       {/* 담기/담김 토글 — 카드 우하단 오버레이 (Link 밖이라 클릭 전파 없음) */}
       <button
         type="button"
-        onClick={() => (added ? remove(place.contentId) : add(item))}
+        onClick={() => (added ? remove(place.contentId) : add(item, activeDay))}
         aria-pressed={added}
         title={added ? "계획에서 빼기" : "여행 계획에 담기"}
         className={`absolute bottom-3 right-3 z-10 inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold shadow-md transition-colors ${
