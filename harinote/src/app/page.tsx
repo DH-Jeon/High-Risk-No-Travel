@@ -56,8 +56,8 @@ export default async function Home({ searchParams }: Props) {
 
           <PrefsPersist profile={profile} transport={transport} />
 
-          {/* 여행 기간·출발일 선택 → 계획 저장 + 아래 안전지도가 그 날짜로 갱신 */}
-          <TripSetup />
+          {/* 여행 기간·출발일·이동수단 선택 → 계획 저장 + 안전지도 갱신 */}
+          <TripSetup transport={transport} />
         </div>
 
         {/* 안전 지도 대시보드 — 선택 조건 기준 */}

@@ -6,7 +6,6 @@ import {
   matchesPlaceQuery,
 } from "@/lib/datasource";
 import { dayOffsetSeoul, formatKoreanDate } from "@/lib/date";
-import DateChips from "@/components/DateChips";
 import {
   CONTENT_TYPE_LABEL,
   SUPPORTED_CONTENT_TYPE_IDS,
@@ -146,14 +145,7 @@ export default async function PlacesPage({ searchParams }: Props) {
           })}
         </nav>
 
-        {/* 여행 날짜 전환 */}
-        <DateChips
-          basePath="/places"
-          current={date}
-          extraParams={{ ...currentParams, date: undefined }}
-        />
-
-        {/* 동행 프로필 전환 + 반려동물 필터 */}
+        {/* 동행 프로필 전환 + 반려동물/유아 필터 (날짜·이동수단은 홈에서 선택) */}
         <div className="flex flex-wrap items-center gap-2">
           <ProfileChips
             basePath="/places"
@@ -182,32 +174,6 @@ export default async function PlacesPage({ searchParams }: Props) {
           >
             👶 유아 동반 시설
           </Link>
-        </div>
-
-        {/* 이동 수단 — 대체지·코스 반경에 반영 (자차 50km), 선택은 기억됨 */}
-        <div className="flex flex-wrap items-center gap-2">
-          {(
-            [
-              { key: "transit", label: "🚌 대중교통" },
-              { key: "car", label: "🚗 자차" },
-            ] as const
-          ).map((t) => (
-            <Link
-              key={t.key}
-              href={`/places${buildQuery({ ...currentParams, tr: t.key === "transit" ? undefined : t.key })}`}
-              aria-current={transport === t.key ? "true" : undefined}
-              className={`inline-flex items-center rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
-                transport === t.key
-                  ? "bg-slate-700 text-white shadow-sm"
-                  : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100"
-              }`}
-            >
-              {t.label}
-            </Link>
-          ))}
-          <span className="self-center text-xs text-slate-400">
-            자차는 상세 페이지에서 더 넓게 (30→50km) 추천해요
-          </span>
         </div>
       </div>
 
