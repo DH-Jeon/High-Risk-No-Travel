@@ -11,21 +11,58 @@ export interface PlanItem {
   lng: number;
   /** 담을 당시 안전점수 (표시용, 없을 수 있음) */
   score?: number;
+  /** 몇 일차 일정인지 (1-based). 미지정=1일차 */
+  day?: number;
 }
 
 export interface TravelPlan {
   items: PlanItem[];
-  /** 여행 기간 (YYYY-MM-DD) */
+  /** 여행 시작일 (YYYY-MM-DD) */
   from?: string;
+  /** 여행 종료일 (YYYY-MM-DD) — startDate + nights 파생, 저장은 안 함 */
   to?: string;
+  /** 박수 (0=당일, 1=1박2일 …). 총 일수 = nights + 1 */
+  nights?: number;
 }
 
 export const EMPTY_PLAN: TravelPlan = { items: [] };
 
-/** 중복(contentId) 없이 뒤에 추가 */
-export function addItem(plan: TravelPlan, item: PlanItem): TravelPlan {
+/** 총 여행 일수 (당일=1, 1박2일=2 …) */
+export function totalDays(plan: TravelPlan): number {
+  return (plan.nights ?? 0) + 1;
+}
+
+/** dayN(1-based)의 날짜 YYYY-MM-DD — 시작일 없으면 undefined */
+export function dateOfDay(plan: TravelPlan, day: number): string | undefined {
+  if (!plan.from) return undefined;
+  const base = Date.parse(`${plan.from}T00:00:00Z`);
+  return new Date(base + (day - 1) * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** 일차별로 그룹핑 (1..totalDays). 각 일차의 항목 배열 */
+export function itemsByDay(plan: TravelPlan): PlanItem[][] {
+  const days = totalDays(plan);
+  const groups: PlanItem[][] = Array.from({ length: days }, () => []);
+  for (const it of plan.items) {
+    const d = Math.min(Math.max(it.day ?? 1, 1), days);
+    groups[d - 1].push(it);
+  }
+  return groups;
+}
+
+/** 박수·시작일 설정 (기간 밖 일차의 항목은 마지막 일차로 당김) */
+export function setTrip(plan: TravelPlan, nights: number, from?: string): TravelPlan {
+  const days = nights + 1;
+  const items = plan.items.map((it) =>
+    (it.day ?? 1) > days ? { ...it, day: days } : it,
+  );
+  return { ...plan, nights, from, items };
+}
+
+/** 중복(contentId) 없이 특정 일차(기본 1)에 추가 */
+export function addItem(plan: TravelPlan, item: PlanItem, day = 1): TravelPlan {
   if (plan.items.some((p) => p.contentId === item.contentId)) return plan;
-  return { ...plan, items: [...plan.items, item] };
+  return { ...plan, items: [...plan.items, { ...item, day: item.day ?? day }] };
 }
 
 export function removeItem(plan: TravelPlan, contentId: number): TravelPlan {
@@ -42,17 +79,19 @@ export function reorder(plan: TravelPlan, from: number, to: number): TravelPlan 
   return { ...plan, items };
 }
 
-export function setRange(plan: TravelPlan, from?: string, to?: string): TravelPlan {
-  return { ...plan, from, to };
+/** 특정 항목을 다른 일차로 이동 */
+export function setItemDay(plan: TravelPlan, contentId: number, day: number): TravelPlan {
+  return {
+    ...plan,
+    items: plan.items.map((it) => (it.contentId === contentId ? { ...it, day } : it)),
+  };
 }
 
-/** 담은 순서대로 이어붙인 직선 총 거리(km, 소수1) */
-export function totalDistanceKm(plan: TravelPlan): number {
+/** 항목 배열을 순서대로 이어붙인 직선 총 거리(km, 소수1) — 일차별 호출 */
+export function totalDistanceKm(items: PlanItem[]): number {
   let sum = 0;
-  for (let i = 1; i < plan.items.length; i++) {
-    const a = plan.items[i - 1];
-    const b = plan.items[i];
-    sum += haversineKm(a.lat, a.lng, b.lat, b.lng);
+  for (let i = 1; i < items.length; i++) {
+    sum += haversineKm(items[i - 1].lat, items[i - 1].lng, items[i].lat, items[i].lng);
   }
   return Math.round(sum * 10) / 10;
 }
