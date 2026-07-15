@@ -17,6 +17,7 @@ import { GRADE_LABEL, type Profile, type RiskLevel } from "@/lib/safety/types";
 import { haversineKm } from "@/lib/reco/distance";
 import { buildQuery, profileParam } from "@/components/search-params";
 import CourseRouteMap from "@/components/CourseRouteMap";
+import { useTravelPlan } from "@/hooks/useTravelPlan";
 
 const SLOT_META: Record<CourseSlot, { emoji: string; label: string }> = {
   morning: { emoji: "☀️", label: "오전" },
@@ -71,6 +72,17 @@ export default function CourseCard({ course, profile }: Props) {
     );
   };
 
+  // 현재 선택 조합을 내 여행 계획에 일괄 담기
+  const { add } = useTravelPlan();
+  const [added, setAdded] = useState(false);
+  const addCourseToPlan = () => {
+    for (const p of chosen) {
+      add({ contentId: p.contentId, title: p.title, lat: p.lat, lng: p.lng, score: p.score });
+    }
+    setAdded(true);
+    setTimeout(() => setAdded(false), 2000);
+  };
+
   return (
     <article className="rounded-2xl bg-white p-5 ring-1 ring-slate-200">
       {/* 테마 헤더 */}
@@ -84,9 +96,22 @@ export default function CourseCard({ course, profile }: Props) {
           </h3>
           <p className="text-sm text-slate-500">{meta.desc}</p>
         </div>
-        <p className="shrink-0 text-sm font-semibold text-slate-600">
-          총 이동 약 {totalKm.toFixed(1)}km
-        </p>
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <p className="text-sm font-semibold text-slate-600">
+            총 이동 약 {totalKm.toFixed(1)}km
+          </p>
+          <button
+            type="button"
+            onClick={addCourseToPlan}
+            className={`rounded-full px-3 py-1 text-xs font-bold transition-colors ${
+              added
+                ? "bg-teal-600 text-white"
+                : "bg-teal-50 text-teal-700 ring-1 ring-teal-200 hover:bg-teal-100"
+            }`}
+          >
+            {added ? "✓ 담았어요" : "+ 내 계획에 담기"}
+          </button>
+        </div>
       </div>
 
       {/* 타임라인 */}
