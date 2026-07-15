@@ -5,11 +5,13 @@ import {
   addItem,
   EMPTY_PLAN,
   isValidPlan,
+  itemsByDay,
   type PlanItem,
   removeItem,
   reorder,
-  setRange,
-  totalDistanceKm,
+  setItemDay,
+  setTrip,
+  totalDays,
   type TravelPlan,
 } from "@/lib/travel-plan";
 
@@ -45,8 +47,12 @@ function subscribe(onChange: () => void): () => void {
 }
 
 function write(next: TravelPlan) {
+  const raw = JSON.stringify(next);
+  // 모듈 캐시를 즉시 갱신 — 연속 호출(코스 일괄 담기 등)에서 readPlan이 항상 최신 반환
+  cachedRaw = raw;
+  cachedPlan = next;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    window.localStorage.setItem(STORAGE_KEY, raw);
     window.dispatchEvent(new Event(SYNC_EVENT));
   } catch {
     /* 저장 실패해도 화면은 다음 읽기에서 이전 상태 유지 */
@@ -66,10 +72,11 @@ export function useTravelPlan() {
     () => false,
   );
 
-  const add = useCallback((item: PlanItem) => write(addItem(readPlan(), item)), []);
+  const add = useCallback((item: PlanItem, day = 1) => write(addItem(readPlan(), item, day)), []);
   const remove = useCallback((contentId: number) => write(removeItem(readPlan(), contentId)), []);
   const move = useCallback((from: number, to: number) => write(reorder(readPlan(), from, to)), []);
-  const setDates = useCallback((from?: string, to?: string) => write(setRange(readPlan(), from, to)), []);
+  const moveToDay = useCallback((contentId: number, day: number) => write(setItemDay(readPlan(), contentId, day)), []);
+  const setTripInfo = useCallback((nights: number, from?: string) => write(setTrip(readPlan(), nights, from)), []);
   const clear = useCallback(() => write(EMPTY_PLAN), []);
   const has = useCallback(
     (contentId: number) => plan.items.some((p) => p.contentId === contentId),
@@ -82,10 +89,12 @@ export function useTravelPlan() {
     add,
     remove,
     move,
-    setDates,
+    moveToDay,
+    setTrip: setTripInfo,
     clear,
     has,
     count: plan.items.length,
-    totalKm: totalDistanceKm(plan),
+    days: totalDays(plan),
+    byDay: itemsByDay(plan),
   };
 }

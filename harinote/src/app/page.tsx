@@ -6,7 +6,7 @@ import { hasForestKey } from "@/lib/risk/forest";
 import { medicalDataSource } from "@/lib/risk/medical";
 import { formatKoreanDate } from "@/lib/date";
 import SearchBox from "@/components/SearchBox";
-import DateChips from "@/components/DateChips";
+import TripSetup from "@/components/TripSetup";
 import RegionDashboard from "@/components/RegionDashboard";
 import {
   parseDate,
@@ -56,17 +56,8 @@ export default async function Home({ searchParams }: Props) {
 
           <PrefsPersist profile={profile} transport={transport} />
 
-          {/* 날짜만 선택 — 세부 조건(동행·이동수단·필터)은 관광지 목록에서 */}
-          <div className="mt-4">
-            <p className="mb-1.5 text-sm font-semibold text-slate-600">
-              언제 가시나요?
-            </p>
-            <DateChips
-              basePath="/"
-              current={date}
-              extraParams={{ profile: profileParam(profile) }}
-            />
-          </div>
+          {/* 여행 기간·출발일 선택 → 계획 저장 + 아래 안전지도가 그 날짜로 갱신 */}
+          <TripSetup />
         </div>
 
         {/* 안전 지도 대시보드 — 선택 조건 기준 */}

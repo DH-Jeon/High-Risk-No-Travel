@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   addItem,
+  dateOfDay,
   EMPTY_PLAN,
   isValidPlan,
+  itemsByDay,
   removeItem,
   reorder,
-  setRange,
+  setItemDay,
+  setTrip,
+  totalDays,
   totalDistanceKm,
   type PlanItem,
 } from "@/lib/travel-plan";
@@ -47,22 +51,55 @@ describe("reorder", () => {
   });
 });
 
-describe("setRange / totalDistanceKm", () => {
-  it("기간 저장", () => {
-    const p = setRange(EMPTY_PLAN, "2026-08-01", "2026-08-03");
-    expect([p.from, p.to]).toEqual(["2026-08-01", "2026-08-03"]);
-  });
-  it("0~1개 항목이면 거리 0", () => {
-    expect(totalDistanceKm(EMPTY_PLAN)).toBe(0);
-    expect(totalDistanceKm(addItem(EMPTY_PLAN, A))).toBe(0);
+describe("totalDistanceKm (항목 배열)", () => {
+  it("0~1개면 거리 0", () => {
+    expect(totalDistanceKm([])).toBe(0);
+    expect(totalDistanceKm([A])).toBe(0);
   });
   it("순서대로 이어붙인 거리 (양수, 순서 바뀌면 달라짐)", () => {
-    const p = addItem(addItem(addItem(EMPTY_PLAN, A), B), C);
-    const d1 = totalDistanceKm(p);
-    const d2 = totalDistanceKm(reorder(p, 0, 2));
+    const d1 = totalDistanceKm([A, B, C]);
+    const d2 = totalDistanceKm([C, A, B]);
     expect(d1).toBeGreaterThan(0);
-    expect(d2).toBeGreaterThan(0);
     expect(d1).not.toBe(d2);
+  });
+});
+
+describe("N박 여행 (nights/day)", () => {
+  it("setTrip: 박수·시작일 저장, 총일수 = nights+1", () => {
+    const p = setTrip(EMPTY_PLAN, 1, "2026-08-01");
+    expect(p.nights).toBe(1);
+    expect(totalDays(p)).toBe(2);
+  });
+
+  it("dateOfDay: 1일차=시작일, 2일차=다음날", () => {
+    const p = setTrip(EMPTY_PLAN, 2, "2026-08-01");
+    expect(dateOfDay(p, 1)).toBe("2026-08-01");
+    expect(dateOfDay(p, 2)).toBe("2026-08-02");
+    expect(dateOfDay(p, 3)).toBe("2026-08-03");
+  });
+
+  it("addItem에 일차 지정 + itemsByDay 그룹핑", () => {
+    let p = setTrip(EMPTY_PLAN, 1, "2026-08-01"); // 2일
+    p = addItem(p, A, 1);
+    p = addItem(p, B, 2);
+    p = addItem(p, C, 1);
+    const g = itemsByDay(p);
+    expect(g).toHaveLength(2);
+    expect(g[0].map((i) => i.contentId)).toEqual([1, 3]);
+    expect(g[1].map((i) => i.contentId)).toEqual([2]);
+  });
+
+  it("setItemDay: 항목을 다른 일차로 이동", () => {
+    let p = setTrip(addItem(EMPTY_PLAN, A, 1), 1, "2026-08-01");
+    p = setItemDay(p, 1, 2);
+    expect(itemsByDay(p)[1].map((i) => i.contentId)).toEqual([1]);
+  });
+
+  it("setTrip 축소 시 기간 밖 항목은 마지막 일차로 당겨짐", () => {
+    let p = setTrip(EMPTY_PLAN, 2, "2026-08-01"); // 3일
+    p = addItem(p, A, 3);
+    p = setTrip(p, 0, "2026-08-01"); // 당일(1일)로 축소
+    expect(p.items[0].day).toBe(1);
   });
 });
 

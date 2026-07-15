@@ -118,8 +118,8 @@ export default async function PlacesPage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 lg:grid lg:grid-cols-[240px_minmax(0,1fr)_320px] lg:items-start lg:gap-6">
-      {/* 좌: 인기 관광지 (lg에서 왼쪽, 모바일은 본문 아래) */}
-      <div className="order-2 mt-10 lg:order-1 lg:mt-0">
+      {/* 좌: 인기 관광지 (lg에서 왼쪽 sticky, 모바일은 본문 아래) */}
+      <div className="order-2 mt-10 lg:order-1 lg:mt-0 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
         <PopularSidebar profile={profile} />
       </div>
 
@@ -374,8 +374,8 @@ export default async function PlacesPage({ searchParams }: Props) {
       )}
       </div>
 
-      {/* 우: 내 여행 계획 (lg에서만 — 모바일은 하단 서랍) */}
-      <div className="order-3 hidden lg:block">
+      {/* 우: 내 여행 계획 (lg에서만 sticky — 모바일은 하단 서랍) */}
+      <div className="order-3 hidden lg:sticky lg:top-20 lg:block lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
         <TravelPlannerPanel />
       </div>
 
