@@ -2,8 +2,9 @@
  * 안전 점수 가중치·임계값 상수 — 모든 수치는 공공기관 공식 발표 기준을 근거로 한다.
  *
  * 산식(제안서): SafetyScore = 100 - (WeatherRisk + DisasterRisk + MedicalRisk + MobilityRisk)
- * 감점 상한(제안서 표): 폭염 25 / 강수·강풍 20 / 미세먼지 15 / 산불·산사태 20 /
+ * 감점 상한(제안서 표): 폭염 25 / 강수·강풍 20 / 미세먼지 15 / 산불 20 / 산사태 15 /
  *                      응급의료 10 / 대피소 10 / 이동 위험 10(2주차)
+ * (제안서의 '산불·산사태 20'을 산불(건조)·산사태(강우) 상반 재해로 분리 — 동시 발생 희박)
  */
 import type { Profile, RiskLevel } from "@/lib/safety/types";
 import type { PlaceEnvType } from "@/lib/tour/types";
@@ -140,6 +141,68 @@ export function normalizeForestFireLevel(level: number): 1 | 2 | 3 | 4 {
 
 export function forestFirePoints(level: number): number {
   return FOREST_FIRE.POINTS_BY_LEVEL[normalizeForestFireLevel(level)];
+}
+
+// ─────────────────────────────────────────────
+// 산사태 (Disaster, 상한 15) — 강우×지형 프록시 + 산림청 예보발령 override
+// ─────────────────────────────────────────────
+/**
+ * 산사태 위험 0~2 (0 없음 / 1 주의보 수준 / 2 경보 수준).
+ * 근거: 산림청 산사태정보시스템 예보발령은 토양함수지수(누적 강우로 산정한 토양 속
+ *   빗물량)로 발령한다 — 권역 토양함수지수 80% 도달 시 주의보, 100% 시 경보.
+ *   실시간 예보발령 API(data.go.kr/15074798) 승인·전파 전까지는 예보 강수량과
+ *   지형 취약도(급경사 산지·계곡 토석류)로 근사한다. 공식 발령이 들어오면
+ *   score.ts가 max(프록시, 공식)으로 상향만 반영한다.
+ *   산불(건조)과 산사태(강우)는 상반된 기상 조건에서 발생 → 동시에 높기 어렵다.
+ */
+export const LANDSLIDE = {
+  LEVEL_LABEL: { 0: "없음", 1: "주의보 수준", 2: "경보 수준" } as Record<
+    0 | 1 | 2,
+    string
+  >,
+  POINTS_BY_LEVEL: { 0: 0, 1: 8, 2: 15 } as Record<0 | 1 | 2, number>,
+  /** 일 강수량 트리거(mm) — 기상청 호우주의보(3h 60mm)·산사태 강우기준을 일강수로 근사 */
+  WATCH_RAIN_MM: 40,
+  WARN_RAIN_MM: 80,
+  MAX_POINTS: 15,
+} as const;
+
+/**
+ * 환경유형별 산사태 취약도 — 급경사 산지·계곡(토석류 경로)이 높고, 평지·해안은 낮으며
+ * 실내는 직접 노출이 없다. envType이 경사·지형을 대리하는 프록시 신호다.
+ */
+const LANDSLIDE_SUSCEPTIBILITY: Record<PlaceEnvType, number> = {
+  indoor: 0,
+  outdoor_mountain: 1.0,
+  outdoor_water: 0.9, // 계곡·수변 = 집중호우 시 토석류 경로
+  outdoor_coast: 0.4,
+  outdoor_general: 0.4,
+};
+
+/** 외부값(음수·3 등) 유입 시 0~2로 clamp */
+export function normalizeLandslideLevel(level: number): 0 | 1 | 2 {
+  const n = Math.round(level);
+  return (n < 0 ? 0 : n > 2 ? 2 : n) as 0 | 1 | 2;
+}
+
+/**
+ * 예보 강수량(mm)×지형 취약도 → 산사태 위험 프록시 0~2.
+ * 취약도 낮은 지형(해안·평지)은 같은 비여도 사면 붕괴 위험이 낮아 한 단계 완화한다.
+ */
+export function landslideProxyLevel(
+  rainMm: number | undefined,
+  envType: PlaceEnvType,
+): 0 | 1 | 2 {
+  const s = LANDSLIDE_SUSCEPTIBILITY[envType];
+  if (!rainMm || s <= 0) return 0;
+  let level: 0 | 1 | 2 =
+    rainMm >= LANDSLIDE.WARN_RAIN_MM ? 2 : rainMm >= LANDSLIDE.WATCH_RAIN_MM ? 1 : 0;
+  if (s < 0.5 && level > 0) level = (level - 1) as 0 | 1 | 2;
+  return level;
+}
+
+export function landslidePoints(level: number): number {
+  return LANDSLIDE.POINTS_BY_LEVEL[normalizeLandslideLevel(level)];
 }
 
 // ─────────────────────────────────────────────
