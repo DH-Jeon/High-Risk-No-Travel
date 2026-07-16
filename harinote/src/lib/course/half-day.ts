@@ -78,6 +78,7 @@ function pickLunch(
   anchor: PlaceWithSafety,
   candidates: PlaceWithSafety[],
   excludeIds: Set<number>,
+  radiusScale = 1,
 ): PlaceWithSafety | null {
   let best: PlaceWithSafety | null = null;
   let bestKm = Infinity;
@@ -88,7 +89,7 @@ function pickLunch(
     if (excludeIds.has(c.contentId)) continue;
     if (c.safety.score < COURSE_MIN_STOP_SCORE) continue;
     const km = haversineKm(anchor.lat, anchor.lng, c.lat, c.lng);
-    if (km > LUNCH_RADIUS_KM) continue;
+    if (km > LUNCH_RADIUS_KM * radiusScale) continue;
     if (
       best === null ||
       c.safety.score > best.safety.score ||
@@ -111,6 +112,7 @@ function pickAfternoon(
   from: PlaceWithSafety,
   candidates: PlaceWithSafety[],
   excludeIds: Set<number>,
+  radiusScale = 1,
 ): PlaceWithSafety | null {
   const preferIndoor =
     anchor.safety.weatherRisk >= RECO_WEATHER_RISK_INDOOR_THRESHOLD;
@@ -122,7 +124,7 @@ function pickAfternoon(
     if (excludeIds.has(c.contentId)) continue;
     if (c.safety.score < COURSE_MIN_STOP_SCORE) continue;
     const km = haversineKm(from.lat, from.lng, c.lat, c.lng);
-    if (km > AFTERNOON_RADIUS_KM) continue;
+    if (km > AFTERNOON_RADIUS_KM * radiusScale) continue;
 
     const indoorRank = preferIndoor && c.envType === "indoor" ? 1 : 0;
     const rankScore =
@@ -146,6 +148,8 @@ export function buildHalfDayCourse(
   target: PlaceWithSafety,
   alternatives: Alternative[],
   candidates: PlaceWithSafety[],
+  /** 이동수단별 반경 배율 — 자차 1.5 (점심 15km, 오후 22.5km) */
+  radiusScale = 1,
 ): HalfDayCourse | null {
   const { anchor, anchoredOnAlternative } = pickAnchor(target, alternatives);
 
@@ -155,12 +159,13 @@ export function buildHalfDayCourse(
   // 앵커·target은 다른 슬롯에 재등장 금지 (대체지 전환 시 위험한 target 재추천 방지)
   const excludeIds = new Set([anchor.contentId, target.contentId]);
 
-  const lunch = pickLunch(anchor, candidates, excludeIds);
+  const lunch = pickLunch(anchor, candidates, excludeIds, radiusScale);
   const afternoon = pickAfternoon(
     anchor,
     lunch ?? anchor, // 점심이 없으면 앵커 기준 15km
     candidates,
     excludeIds,
+    radiusScale,
   );
 
   const places: { slot: CourseStop["slot"]; place: PlaceWithSafety }[] = [

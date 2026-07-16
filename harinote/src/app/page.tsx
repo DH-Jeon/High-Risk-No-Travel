@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Suspense } from "react";
 import { getRegionSummaries } from "@/lib/risk/region-summary";
 import FestivalSection from "@/components/FestivalSection";
@@ -7,19 +6,17 @@ import { hasForestKey } from "@/lib/risk/forest";
 import { medicalDataSource } from "@/lib/risk/medical";
 import { formatKoreanDate } from "@/lib/date";
 import SearchBox from "@/components/SearchBox";
-import DateChips from "@/components/DateChips";
-import ProfileChips from "@/components/ProfileChips";
+import TripSetup from "@/components/TripSetup";
 import RegionDashboard from "@/components/RegionDashboard";
 import {
   parseDateRange,
   parseProfile,
+  parseTransport,
   profileParam,
-  buildQuery,
   type SearchParamValue,
 } from "@/components/search-params";
-
-// 검색어별 결과가 실제로 존재하는지 확인된 목록 (gangwon.json 기준 — "경포해변"은 0건이라 "경포"로)
-const POPULAR = ["남이섬", "설악산", "경포", "정동진", "춘천", "속초"];
+import { savedProfile, savedTransport, type Transport } from "@/lib/prefs";
+import PrefsPersist from "@/components/PrefsPersist";
 
 interface Props {
   searchParams: Promise<Record<string, SearchParamValue>>;
@@ -27,7 +24,13 @@ interface Props {
 
 export default async function Home({ searchParams }: Props) {
   const sp = await searchParams;
-  const profile = parseProfile(sp.profile);
+  // URL 파라미터 우선, 없으면 쿠키에 기억된 조건 (한 번 고르면 다음 방문에도 유지)
+  const profile =
+    sp.profile !== undefined
+      ? parseProfile(sp.profile)
+      : ((await savedProfile()) ?? "default");
+  const transport: Transport =
+    parseTransport(sp.tr) ?? (await savedTransport()) ?? "transit";
   // 기간 모드(?date=&end=) — end가 없으면 기존 단일 날짜와 동일 동작
   const { start: date, end } = parseDateRange(sp.date, sp.end);
 
@@ -51,58 +54,15 @@ export default async function Home({ searchParams }: Props) {
             기상·재난·의료 공공데이터로 관광지별 방문 주의 요인을 점수로
             알려드립니다.
           </p>
-          <div className="mt-4">
+          {/* 모바일 검색 (md+는 네비바 전역 검색 사용) */}
+          <div className="mt-4 md:hidden">
             <SearchBox profile={profile} date={date} end={end} />
           </div>
 
-          {/* 온보딩 — 누르면 지도·점수가 그 조건으로 바로 갱신된다 */}
-          <div className="mt-4 space-y-3">
-            <div>
-              <p className="mb-1.5 text-sm font-semibold text-slate-600">
-                언제 가시나요?
-              </p>
-              <DateChips
-                basePath="/"
-                current={date}
-                end={end}
-                extraParams={{ profile: profileParam(profile) }}
-              />
-            </div>
-            <div>
-              <p className="mb-1.5 text-sm font-semibold text-slate-600">
-                누구와 함께 가시나요?
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <ProfileChips
-                  basePath="/"
-                  current={profile}
-                  extraParams={{ date, end }}
-                  exclude={["own_car"]}
-                />
-                <Link
-                  href={`/places${buildQuery({ pet: "1", profile: profileParam(profile), date, end })}`}
-                  className="inline-flex items-center gap-1 rounded-full bg-white px-3.5 py-1.5 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-amber-50 hover:text-amber-700"
-                >
-                  🐶 반려동물과 함께
-                </Link>
-              </div>
-            </div>
-          </div>
+          <PrefsPersist profile={profile} transport={transport} />
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold text-slate-500">
-              인기 검색
-            </span>
-            {POPULAR.map((name) => (
-              <Link
-                key={name}
-                href={`/places${buildQuery({ q: name, profile: profileParam(profile), date, end })}`}
-                className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-teal-50 hover:text-teal-700 hover:ring-teal-300"
-              >
-                {name}
-              </Link>
-            ))}
-          </div>
+          {/* 여행 기간·출발일·이동수단 선택 → 계획 저장 + 안전지도 갱신 */}
+          <TripSetup transport={transport} />
         </div>
 
         {/* 안전 지도 대시보드 — 선택 조건 기준 */}

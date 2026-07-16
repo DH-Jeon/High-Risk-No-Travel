@@ -17,6 +17,7 @@ import {
   ENV_WEIGHT,
   FOREST_FIRE,
   HEAT,
+  LANDSLIDE,
   MEDICAL,
   PM25,
   PROFILE_WEIGHT,
@@ -25,6 +26,8 @@ import {
   SHELTER,
   forestFirePoints,
   gradeForScore,
+  landslidePoints,
+  landslideProxyLevel,
   normalizeForestFireLevel,
   heatPoints,
   levelForPoints,
@@ -134,7 +137,7 @@ export function computeSafetyScore(
     description: `PM2.5 ${input.pm25}㎍/㎥ — 환경부 '${pmGradeLabel(input.pm25)}' 등급${prof.pmSensitive ? " · 민감군 기준" : ""}`,
   });
 
-  // ── 산불·산사태 (Disaster) ──
+  // ── 산불 (Disaster) ──
   const fireLevel = normalizeForestFireLevel(input.forestFireLevel);
   const fire = finalize(
     forestFirePoints(fireLevel),
@@ -143,7 +146,7 @@ export function computeSafetyScore(
   );
   factors.push({
     key: "forest_fire",
-    label: "산불·산사태",
+    label: "산불",
     value: fireLevel,
     unit: "단계",
     threshold: 3,
@@ -152,6 +155,29 @@ export function computeSafetyScore(
     level: levelForPoints(fire, FOREST_FIRE.MAX_POINTS),
     description: `산불위험 ${fireLevel}단계 — 산림청 '${FOREST_FIRE.LEVEL_LABEL[fireLevel]}'`,
   });
+
+  // ── 산사태 (Disaster) — 강우×지형 프록시, 공식 예보발령이 있으면 상향 override ──
+  // 취약도(지형)는 프록시 레벨에 이미 반영되므로 여기선 env 가중을 겹쳐 곱하지 않는다.
+  const proxyLevel = landslideProxyLevel(input.rainMm, place.envType);
+  const landslideLevel = Math.max(proxyLevel, input.landslideLevel ?? 0) as 0 | 1 | 2;
+  let landslide = 0;
+  if (landslideLevel > 0) {
+    landslide = finalize(landslidePoints(landslideLevel), 1, LANDSLIDE.MAX_POINTS);
+    const official = (input.landslideLevel ?? 0) >= landslideLevel;
+    factors.push({
+      key: "landslide",
+      label: "산사태",
+      value: landslideLevel,
+      unit: "단계",
+      threshold: 1,
+      points: landslide,
+      maxPoints: LANDSLIDE.MAX_POINTS,
+      level: levelForPoints(landslide, LANDSLIDE.MAX_POINTS),
+      description: official
+        ? `산사태 ${LANDSLIDE.LEVEL_LABEL[landslideLevel]} — 산림청 예보발령`
+        : `산사태 위험 ${LANDSLIDE.LEVEL_LABEL[landslideLevel]} — 예보 강수량·지형 기반 추정`,
+    });
+  }
 
   // ── 응급의료 접근성 (Medical) ──
   const medical = finalize(
@@ -213,7 +239,7 @@ export function computeSafetyScore(
   // 요인별 상한 총합은 110점이므로 극단 입력에서 총 감점이 100을 넘을 수 있다.
   // 이때 score는 0으로 고정되고 소계는 감점 원값을 보존한다 (소계 합 > 100 - score 허용).
   const weatherRisk = heat + rainWind + pm;
-  const disasterRisk = fire + shelter;
+  const disasterRisk = fire + landslide + shelter;
   const medicalRisk = medical;
   const mobilityRisk = road;
   const total = weatherRisk + disasterRisk + medicalRisk + mobilityRisk;

@@ -7,14 +7,17 @@ import {
   matchesPlaceQuery,
 } from "@/lib/datasource";
 import { dayOffsetSeoul, formatKoreanDate } from "@/lib/date";
-import DateChips from "@/components/DateChips";
 import {
   CAT3_CAFE_LABEL,
   CONTENT_TYPE_LABEL,
   SUPPORTED_CONTENT_TYPE_IDS,
 } from "@/lib/tour/types";
-import PlaceCard from "@/components/PlaceCard";
+import PlannerCard from "@/components/PlannerCard";
 import PopularSidebar from "@/components/PopularSidebar";
+import TravelPlannerPanel from "@/components/TravelPlannerPanel";
+import PlannerDrawer from "@/components/PlannerDrawer";
+import PrefsPersist from "@/components/PrefsPersist";
+import { savedTransport } from "@/lib/prefs";
 import ProfileChips from "@/components/ProfileChips";
 import SearchBox from "@/components/SearchBox";
 import {
@@ -26,8 +29,8 @@ import {
   parsePet,
   parsePlaceType,
   parseProfile,
-  parseRiskType,
   parseSigungu,
+  parseTransport,
   placeTypeToQuery,
   profileParam,
   type PlaceTypeParam,
@@ -35,7 +38,6 @@ import {
 } from "@/components/search-params";
 import { isPetFriendly } from "@/lib/tour/pet-friendly";
 import { isKidsFriendly } from "@/lib/tour/kids-friendly";
-import { getRiskType, RISK_TYPE_META } from "@/lib/tour/risk-types";
 import { SIGUNGU_SEATS } from "@/lib/risk/regions";
 
 const PAGE_SIZE = 24;
@@ -75,8 +77,9 @@ export default async function PlacesPage({ searchParams }: Props) {
   // 유아 동반 시설 필터 (한국문화정보원 2022 데이터 매칭분)
   const kids = parseKids(sp.kids);
   const kidsParam = kids ? "1" : undefined;
-  // 위험 유형 필터 (분석 클러스터 7유형) — 같은 유형끼리 비교
-  const riskType = parseRiskType(sp.rt);
+  // 이동 수단 (상세의 대체지·코스 반경에 반영) — URL 우선, 없으면 쿠키 기억값
+  const transport =
+    parseTransport(sp.tr) ?? (await savedTransport()) ?? "transit";
 
   // 링크들이 공유하는 현재 조건 — 각 링크는 바꿀 파라미터만 덮어쓴다
   const currentParams = {
@@ -88,7 +91,7 @@ export default async function PlacesPage({ searchParams }: Props) {
     end,
     pet: petParam,
     kids: kidsParam,
-    rt: riskType,
+    tr: transport === "transit" ? undefined : transport,
   };
 
   // 기본 정렬 = 안전점수 높은 순 — "어디가 안전한가"가 서비스의 축이므로
@@ -109,7 +112,6 @@ export default async function PlacesPage({ searchParams }: Props) {
     )
     .filter((p) => !pet || isPetFriendly(p.contentId))
     .filter((p) => !kids || isKidsFriendly(p.contentId))
-    .filter((p) => !riskType || getRiskType(p.contentId) === riskType)
     .sort((a, b) => b.safety.score - a.safety.score);
 
   // 서버 사이드 페이지네이션 — 24건/페이지.
@@ -122,9 +124,15 @@ export default async function PlacesPage({ searchParams }: Props) {
     `/places${buildQuery({ ...currentParams, page: p === 1 ? undefined : p })}`;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 lg:grid lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start lg:gap-8">
-      <div>
-        <div className="max-w-2xl">
+    <div className="mx-auto max-w-7xl px-4 py-8 lg:grid lg:grid-cols-[240px_minmax(0,1fr)_320px] lg:items-start lg:gap-6">
+      {/* 좌: 인기 관광지 (lg에서 왼쪽 sticky, 모바일은 본문 아래) */}
+      <div className="order-2 mt-10 lg:order-1 lg:mt-0 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
+        <PopularSidebar profile={profile} />
+      </div>
+
+      <div className="order-1 lg:order-2">
+        {/* 모바일 검색 (md+는 네비바 전역 검색 사용) */}
+        <div className="max-w-2xl md:hidden">
           <SearchBox
             defaultQuery={q}
             profile={profile}
@@ -157,49 +165,7 @@ export default async function PlacesPage({ searchParams }: Props) {
           })}
         </nav>
 
-        {/* 위험 유형 필터 — 분석 클러스터 7유형, 같은 유형끼리 점수 비교 */}
-        <nav aria-label="위험 유형 필터" className="flex flex-wrap gap-2">
-          <Link
-            href={`/places${buildQuery({ ...currentParams, rt: undefined })}`}
-            aria-current={riskType === undefined ? "true" : undefined}
-            className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-              riskType === undefined
-                ? "bg-slate-700 text-white"
-                : "bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-100"
-            }`}
-          >
-            모든 유형
-          </Link>
-          {(Object.keys(RISK_TYPE_META) as (keyof typeof RISK_TYPE_META)[]).map(
-            (key) => {
-              const meta = RISK_TYPE_META[key];
-              const active = riskType === key;
-              return (
-                <Link
-                  key={key}
-                  href={`/places${buildQuery({ ...currentParams, rt: active ? undefined : key })}`}
-                  aria-current={active ? "true" : undefined}
-                  title={meta.caution}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 transition-colors ${
-                    active ? "ring-2 ring-slate-500 " + meta.pill : meta.pill + " opacity-80 hover:opacity-100"
-                  }`}
-                >
-                  {meta.emoji} {meta.label}
-                </Link>
-              );
-            },
-          )}
-        </nav>
-
-        {/* 여행 날짜·기간 전환 */}
-        <DateChips
-          basePath="/places"
-          current={date}
-          end={end}
-          extraParams={{ ...currentParams, date: undefined, end: undefined }}
-        />
-
-        {/* 동행 프로필 전환 + 반려동물 필터 */}
+        {/* 동행 프로필 전환 + 반려동물/유아 필터 (날짜·이동수단은 홈에서 선택) */}
         <div className="flex flex-wrap items-center gap-2">
           <ProfileChips
             basePath="/places"
@@ -230,6 +196,8 @@ export default async function PlacesPage({ searchParams }: Props) {
           </Link>
         </div>
       </div>
+
+      <PrefsPersist profile={profile} transport={transport} />
 
       <p className="mt-6 flex flex-wrap items-center gap-2 text-sm text-slate-500">
         <span>
@@ -305,9 +273,9 @@ export default async function PlacesPage({ searchParams }: Props) {
         </div>
       ) : (
         <>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
             {pagePlaces.map((place) => (
-              <PlaceCard
+              <PlannerCard
                 key={place.contentId}
                 place={place}
                 profile={profile}
@@ -362,10 +330,13 @@ export default async function PlacesPage({ searchParams }: Props) {
       )}
       </div>
 
-      {/* 인기 관광지 사이드바 — lg 미만에서는 결과 아래 스택 */}
-      <div className="mt-10 lg:mt-0">
-        <PopularSidebar profile={profile} />
+      {/* 우: 내 여행 계획 (lg에서만 sticky — 모바일은 하단 서랍) */}
+      <div className="order-3 hidden lg:sticky lg:top-20 lg:block lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
+        <TravelPlannerPanel />
       </div>
+
+      {/* 모바일 계획 서랍 (lg:hidden 내장) */}
+      <PlannerDrawer />
     </div>
   );
 }
