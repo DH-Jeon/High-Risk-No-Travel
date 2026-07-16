@@ -54,7 +54,6 @@ export function summarizeRegions(places: PlaceWithSafety[]): RegionSummary[] {
 
   return Object.keys(SIGUNGU_SEATS)
     .map(Number)
-    .sort((a, b) => a - b)
     .map((code) => {
       const seat = SIGUNGU_SEATS[code];
       const scores = (scoresByCode.get(code) ?? []).sort((a, b) => a - b);
@@ -68,7 +67,9 @@ export function summarizeRegions(places: PlaceWithSafety[]): RegionSummary[] {
         grade: medianScore === null ? null : gradeForScore(medianScore),
         placeCount: scores.length,
       };
-    });
+    })
+    // 안전점수 높은 시군부터 (데이터 없는 곳은 맨 뒤)
+    .sort((a, b) => (b.medianScore ?? -1) - (a.medianScore ?? -1));
 }
 
 /**

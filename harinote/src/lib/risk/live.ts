@@ -104,6 +104,12 @@ export async function getLiveRiskInput(
     input.forestFireLevel = forestFire.value;
   }
 
+  // 산사태: 평상시엔 score.ts가 예보 강수량×지형으로 프록시 계산한다(입력 불필요).
+  // 산림청 산사태 예보발령 API(data.go.kr/15074798) 활용신청 승인·게이트웨이 전파 후,
+  // 활성 발령이 있는 시군구면 input.landslideLevel = 1|2 로 세팅하면
+  // score.ts가 max(프록시, 공식)으로 상향 반영한다 (없으면 미설정 → 프록시 유지).
+  // TODO(landslide): 승인 후 fetchLandslideAlert(sigunguCode) 추가 — 스모크로 응답 필드 확정 뒤 배선.
+
   if (weather.status === "rejected" && pm25.status === "rejected") {
     if (!warnedAllSourcesFailed) {
       warnedAllSourcesFailed = true;

@@ -1,15 +1,7 @@
 import Link from "next/link";
 import type { Profile } from "@/lib/safety/types";
-import { PROFILE_LABEL } from "@/lib/safety/types";
-import { buildQuery, profileParam } from "@/components/search-params";
+import { buildQuery } from "@/components/search-params";
 import LinkLabel from "@/components/LinkLabel";
-
-const PROFILE_ICON: Record<Profile, string> = {
-  default: "👤",
-  with_kids: "🧒",
-  with_seniors: "👵",
-  own_car: "🚗",
-};
 
 interface Props {
   /** 프로필 쿼리를 바꿔 이동할 기준 경로 (예: /places/126273) */
@@ -17,29 +9,44 @@ interface Props {
   current: Profile;
   /** profile 외에 유지할 쿼리 파라미터 */
   extraParams?: Record<string, string | number | undefined>;
-  /** 숨길 프로필 (예: 홈 온보딩은 데이터 미연동인 자차 제외) */
-  exclude?: Profile[];
 }
 
-/** 링크 기반 동행 프로필 전환 칩 — 프로필별로 점수가 달라짐을 보여준다 */
-export default function ProfileChips({
-  basePath,
-  current,
-  extraParams = {},
-  exclude = [],
-}: Props) {
+/** 현재 프로필에 아이/부모님이 포함되는지 */
+function has(current: Profile, who: "kids" | "seniors"): boolean {
+  if (who === "kids") return current === "with_kids" || current === "with_kids_seniors";
+  return current === "with_seniors" || current === "with_kids_seniors";
+}
+
+/** 아이/부모님 토글 결과 → 새 Profile 값 */
+function toggled(current: Profile, who: "kids" | "seniors"): Profile {
+  const kids = has(current, "kids") !== (who === "kids");
+  const seniors = has(current, "seniors") !== (who === "seniors");
+  if (kids && seniors) return "with_kids_seniors";
+  if (kids) return "with_kids";
+  if (seniors) return "with_seniors";
+  return "default";
+}
+
+/**
+ * 동행 프로필 칩 — 아이·부모님을 각각 독립 토글 (동시 선택 가능).
+ * 이동수단(own_car)은 별도 축이라 여기 없음.
+ */
+export default function ProfileChips({ basePath, current, extraParams = {} }: Props) {
+  const chips: { who: "kids" | "seniors"; icon: string; label: string }[] = [
+    { who: "kids", icon: "🧒", label: "아이 동반" },
+    { who: "seniors", icon: "👵", label: "부모님 동반" },
+  ];
+
   return (
     <div className="flex flex-wrap gap-2">
-      {(Object.keys(PROFILE_LABEL) as Profile[])
-        .filter((p) => !exclude.includes(p))
-        .map((p) => {
-        const active = p === current;
-        const href = `${basePath}${buildQuery({ ...extraParams, profile: profileParam(p) })}`;
+      {chips.map((c) => {
+        const active = has(current, c.who);
+        const href = `${basePath}${buildQuery({ ...extraParams, profile: toggled(current, c.who) })}`;
         return (
           <Link
-            key={p}
+            key={c.who}
             href={href}
-            aria-current={active ? "true" : undefined}
+            aria-pressed={active}
             className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
               active
                 ? "bg-teal-600 text-white shadow-sm"
@@ -47,8 +54,8 @@ export default function ProfileChips({
             }`}
           >
             <LinkLabel>
-              <span aria-hidden="true">{PROFILE_ICON[p]}</span>
-              {PROFILE_LABEL[p]}
+              <span aria-hidden="true">{c.icon}</span>
+              {c.label}
             </LinkLabel>
           </Link>
         );

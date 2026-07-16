@@ -100,6 +100,12 @@ export function parseKids(v: SearchParamValue): boolean {
   return first(v) === "1";
 }
 
+/** 이동 수단 파라미터 — tr=car|transit (그 외는 undefined = 쿠키/기본값) */
+export function parseTransport(v: SearchParamValue): "car" | "transit" | undefined {
+  const s = first(v);
+  return s === "car" || s === "transit" ? s : undefined;
+}
+
 /** 위험 유형 필터 — RISK_TYPE_META에 있는 키만 허용 (general·오류는 전체) */
 export function parseRiskType(
   v: SearchParamValue,
