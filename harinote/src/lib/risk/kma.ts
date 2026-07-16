@@ -21,7 +21,7 @@ const BASE_HOURS = [2, 5, 8, 11, 14, 17, 20];
 const PUBLISH_DELAY_MIN = 10;
 
 export interface KmaDailyWeather {
-  /** 오늘 최고기온 ℃ (TMX, 없으면 남은 시간대 TMP 최댓값) */
+  /** 오늘 최고 체감온도 ℃ (습도 있으면 폭염특보 산정식, 없으면 최고기온 TMX) */
   tempC?: number;
   /** 오늘 강수확률 최댓값 % (POP) */
   rainProbPct?: number;
@@ -69,6 +69,33 @@ export function pickBaseDateTime(now: Date): { baseDate: string; baseTime: strin
   // 자정~02:10 — 전날 23시 발표 (KST는 DST가 없어 -24h가 정확히 전날이다)
   const prev = kstParts(new Date(now.getTime() - 24 * 60 * 60 * 1000));
   return { baseDate: prev.date, baseTime: "2300" };
+}
+
+/**
+ * 여름철 체감온도(℃) — 기상청 폭염특보 산정식 (기온 Ta, 상대습도 RH%).
+ * 습구온도 Tw는 Stull(2011) 근사식으로 구한다.
+ * 기온 25℃ 미만에서는 체감온도 개념이 무의미하므로 기온을 그대로 반환.
+ * 근거: 기상청 폭염특보 발표 기준은 '일 최고 체감온도'이며 이 식으로 산정한다.
+ */
+export function feelsLikeSummerC(ta: number, rh: number): number {
+  if (ta < 25 || !Number.isFinite(rh)) return ta;
+  const r = Math.max(0, Math.min(100, rh));
+  // Stull 습구온도 근사 (℃)
+  const tw =
+    ta * Math.atan(0.151977 * Math.sqrt(r + 8.313659)) +
+    Math.atan(ta + r) -
+    Math.atan(r - 1.67633) +
+    0.00391838 * Math.pow(r, 1.5) * Math.atan(0.023101 * r) -
+    4.686035;
+  const feels =
+    -0.2442 +
+    0.55399 * tw +
+    0.45535 * ta -
+    0.0022 * tw * tw +
+    0.00278 * tw * ta +
+    3.0;
+  // 체감이 기온보다 낮게 나오는 이상치는 기온으로 하한 (건조 시)
+  return Math.round(Math.max(feels, ta) * 10) / 10;
 }
 
 /**
@@ -147,6 +174,8 @@ export function summarizeDaily(
   let popMax: number | undefined;
   let wsdMax: number | undefined;
   let pcpSum: number | undefined;
+  // 시간대별 (기온, 습도) — 최고 체감온도를 뽑기 위해 페어로 모은다
+  const tempRhByTime = new Map<string, { ta?: number; rh?: number }>();
 
   for (const item of dayItems) {
     const n = Number(item.fcstValue);
@@ -154,9 +183,23 @@ export function summarizeDaily(
       case "TMX":
         if (Number.isFinite(n)) tmx = n;
         break;
-      case "TMP":
-        if (Number.isFinite(n)) tmpMax = tmpMax === undefined ? n : Math.max(tmpMax, n);
+      case "TMP": {
+        if (Number.isFinite(n)) {
+          tmpMax = tmpMax === undefined ? n : Math.max(tmpMax, n);
+          const e = tempRhByTime.get(item.fcstTime) ?? {};
+          e.ta = n;
+          tempRhByTime.set(item.fcstTime, e);
+        }
         break;
+      }
+      case "REH": {
+        if (Number.isFinite(n)) {
+          const e = tempRhByTime.get(item.fcstTime) ?? {};
+          e.rh = n;
+          tempRhByTime.set(item.fcstTime, e);
+        }
+        break;
+      }
       case "POP":
         if (Number.isFinite(n)) popMax = popMax === undefined ? n : Math.max(popMax, n);
         break;
@@ -172,8 +215,21 @@ export function summarizeDaily(
     }
   }
 
+  // 일 최고 체감온도 — 기온·습도가 함께 있는 시간대만 체감 계산 (폭염특보 기준).
+  // 습도(REH) 미제공 시에는 계산하지 않고 최고기온(TMX)을 그대로 쓴다.
+  let feelsMax: number | undefined;
+  for (const { ta, rh } of tempRhByTime.values()) {
+    if (ta === undefined || rh === undefined) continue;
+    const f = feelsLikeSummerC(ta, rh);
+    feelsMax = feelsMax === undefined ? f : Math.max(feelsMax, f);
+  }
+
   const weather: KmaDailyWeather = {};
-  const tempC = tmx ?? tmpMax;
+  // 폭염 판정용 기온 = 체감온도(습도 있을 때) 또는 최고기온
+  const tempC =
+    feelsMax !== undefined
+      ? Math.max(feelsMax, tmx ?? feelsMax) // 체감·실측 최고기온 중 높은 쪽
+      : (tmx ?? tmpMax);
   if (tempC !== undefined) weather.tempC = tempC;
   if (popMax !== undefined) weather.rainProbPct = popMax;
   if (wsdMax !== undefined) weather.windMs = wsdMax;
