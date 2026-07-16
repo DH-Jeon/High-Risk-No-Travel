@@ -7,7 +7,6 @@
 import type { PlaceEnvType } from "@/lib/tour/types";
 import { fetchPlaceImages } from "@/lib/tour/images";
 import { fetchPlaceOverview } from "@/lib/tour/overview";
-import { summaryOf } from "@/lib/tour/summaries";
 import { fetchPlacePetInfo } from "@/lib/tour/pet";
 import { fetchBlogReviews } from "@/lib/review/naver-blog";
 import PlaceGallery from "@/components/PlaceGallery";
@@ -44,26 +43,19 @@ export async function OverviewSection({
 }) {
   const overview = (await fetchPlaceOverview(contentId)) ?? fallback;
   if (!overview) return null;
-  const summary = summaryOf(contentId);
+  // 3줄 요약은 히어로(이름·주소 아래)에서 보여주므로, 여기서는 원문을 접어둔다
   return (
     <section>
-      <h2 className="text-lg font-bold text-slate-900">소개</h2>
-      {summary && (
-        <div className="mt-2 rounded-xl bg-sky-50/60 p-4 ring-1 ring-sky-100">
-          <p className="text-xs font-bold text-sky-700">
-            ⚡ 핵심 3줄
-            <span className="ml-1.5 font-medium text-sky-400">AI 요약</span>
-          </p>
-          <ul className="mt-1.5 space-y-0.5 text-sm leading-relaxed text-slate-700">
-            {summary.map((line) => (
-              <li key={line}>· {line}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-      <p className="mt-2 rounded-xl bg-white p-4 text-sm leading-relaxed text-slate-600 ring-1 ring-slate-200">
-        {overview}
-      </p>
+      <details className="group rounded-xl bg-white ring-1 ring-slate-200">
+        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:text-teal-700">
+          <span className="mr-1 inline-block transition-transform group-open:rotate-90">▸</span>
+          전체 소개 보기
+          <span className="ml-2 text-xs font-normal text-slate-400">한국관광공사 제공</span>
+        </summary>
+        <p className="border-t border-slate-100 px-4 py-3 text-sm leading-relaxed text-slate-600">
+          {overview}
+        </p>
+      </details>
     </section>
   );
 }

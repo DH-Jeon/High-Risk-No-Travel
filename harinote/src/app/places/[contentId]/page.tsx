@@ -20,6 +20,7 @@ import PlaceGallery from "@/components/PlaceGallery";
 import PlaceMap from "@/components/PlaceMap";
 import { GallerySection, OverviewSection, PetSection, ReviewsSection } from "./sections";
 import { kidsAmenityLabels, kidsInfoOf } from "@/lib/tour/kids-friendly";
+import { summaryOf } from "@/lib/tour/summaries";
 import ProfileChips from "@/components/ProfileChips";
 import RiskBreakdownBar from "@/components/RiskBreakdownBar";
 import RiskTypeBadge from "@/components/RiskTypeBadge";
@@ -27,10 +28,14 @@ import SafetyScoreBadge from "@/components/SafetyScoreBadge";
 import {
   parseDate,
   parseProfile,
+  parseTransport,
   profileParam,
   buildQuery,
   type SearchParamValue,
 } from "@/components/search-params";
+import { savedProfile, savedTransport } from "@/lib/prefs";
+import { CAR_DISTANCE_KM } from "@/lib/reco/alternatives";
+import PrefsPersist from "@/components/PrefsPersist";
 
 interface Props {
   params: Promise<{ contentId: string }>;
@@ -54,7 +59,12 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
   const contentId = parseContentId(rawId);
   if (contentId === null) notFound();
 
-  const profile = parseProfile(sp.profile);
+  // URL 파라미터 우선, 없으면 쿠키에 기억된 조건 (첫 화면에서 저장됨)
+  const profile =
+    sp.profile !== undefined
+      ? parseProfile(sp.profile)
+      : ((await savedProfile()) ?? "default");
+  const transport = parseTransport(sp.tr) ?? (await savedTransport()) ?? "transit";
   const place = await getPlaceWithSafety(contentId, profile);
   if (!place) notFound();
 
@@ -75,13 +85,26 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
     ? await getPlacesWithSafetyOnDate(profile, activeDate)
     : await getPlacesWithSafety(undefined, profile);
 
-  const alternatives = recommendAlternatives({ ...place, safety }, candidates);
+  // 자차는 후보 반경 확대 (대체지 30→50km, 코스 ×1.5) — 직선거리 기준 후보 추리기
+  const altMaxKm = transport === "car" ? CAR_DISTANCE_KM : undefined;
+  const alternatives = recommendAlternatives(
+    { ...place, safety },
+    candidates,
+    undefined,
+    altMaxKm,
+  );
 
   // 안전 반나절 코스: 앵커(target 또는 대체지 1순위) + 음식점 + 관광지·문화시설
-  const course = buildHalfDayCourse({ ...place, safety }, alternatives, candidates);
+  const course = buildHalfDayCourse(
+    { ...place, safety },
+    alternatives,
+    candidates,
+    transport === "car" ? 1.5 : 1,
+  );
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
+      <PrefsPersist profile={profile} transport={transport} />
       <Link
         href={`/places${buildQuery({ profile: profileParam(profile) })}`}
         className="inline-flex items-center gap-1 text-sm font-semibold text-slate-500 transition-colors hover:text-teal-700"
@@ -129,6 +152,25 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
               <span className="ml-2 text-slate-400">{place.tel}</span>
             )}
           </p>
+
+          {/* AI 3줄 요약 — 이름·주소 바로 아래에서 "어떤 곳인지" 즉시 파악 */}
+          {(() => {
+            const summary = summaryOf(place.contentId);
+            if (!summary) return null;
+            return (
+              <div className="mt-3 rounded-xl bg-sky-50/60 px-4 py-3 ring-1 ring-sky-100">
+                <p className="text-xs font-bold text-sky-700">
+                  ⚡ 핵심 3줄
+                  <span className="ml-1.5 font-medium text-sky-400">AI 요약</span>
+                </p>
+                <ul className="mt-1 space-y-0.5 text-sm leading-relaxed text-slate-700">
+                  {summary.map((line) => (
+                    <li key={line}>· {line}</li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()}
 
           <div className="mt-6">
             {dateSafety?.seasonal ? (
@@ -191,6 +233,14 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
                 className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-slate-100"
               >
                 <span aria-hidden="true">🔍</span> 네이버에서 자세히 보기
+              </a>
+              <a
+                href={`https://map.kakao.com/link/to/${encodeURIComponent(place.title)},${place.lat},${place.lng}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-slate-100"
+              >
+                <span aria-hidden="true">🧭</span> 길찾기 (실제 소요시간)
               </a>
             </div>
             <div className="mt-4">
@@ -328,7 +378,7 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
           <section>
             <h2 className="text-lg font-bold text-slate-900">안전한 대체지 추천</h2>
             <p className="mt-1 text-sm text-slate-500">
-              같은 유형의 더 안전한 주변 관광지예요 (30km 이내)
+              같은 유형의 더 안전한 주변 관광지예요 — {transport === "car" ? `자차 기준 ${CAR_DISTANCE_KM}km` : "대중교통 기준 30km"} 이내 (직선거리)
             </p>
             {alternatives.length === 0 ? (
               <div className="mt-3 rounded-2xl bg-teal-50/50 px-6 py-10 text-center ring-1 ring-teal-100">

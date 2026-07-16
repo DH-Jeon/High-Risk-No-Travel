@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Profile } from "@/lib/safety/types";
 import { PROFILE_LABEL } from "@/lib/safety/types";
-import { buildQuery, profileParam } from "@/components/search-params";
+import { buildQuery } from "@/components/search-params";
 import LinkLabel from "@/components/LinkLabel";
 
 const PROFILE_ICON: Record<Profile, string> = {
@@ -17,24 +17,26 @@ interface Props {
   current: Profile;
   /** profile 외에 유지할 쿼리 파라미터 */
   extraParams?: Record<string, string | number | undefined>;
-  /** 숨길 프로필 (예: 홈 온보딩은 데이터 미연동인 자차 제외) */
-  exclude?: Profile[];
 }
 
-/** 링크 기반 동행 프로필 전환 칩 — 프로필별로 점수가 달라짐을 보여준다 */
+/**
+ * 링크 기반 동행 프로필 전환 칩 — 프로필별로 점수가 달라짐을 보여준다.
+ * own_car는 "동행"이 아니라 이동수단이므로 항상 제외 —
+ * 별도 축(prefs.transport, 홈 "어떻게 이동하시나요?")으로 분리됨.
+ */
 export default function ProfileChips({
   basePath,
   current,
   extraParams = {},
-  exclude = [],
 }: Props) {
   return (
     <div className="flex flex-wrap gap-2">
       {(Object.keys(PROFILE_LABEL) as Profile[])
-        .filter((p) => !exclude.includes(p))
+        .filter((p) => p !== "own_car")
         .map((p) => {
         const active = p === current;
-        const href = `${basePath}${buildQuery({ ...extraParams, profile: profileParam(p) })}`;
+        // 항상 명시적 profile 파라미터 — "기본" 선택이 쿠키 기억값에 덮이지 않도록
+        const href = `${basePath}${buildQuery({ ...extraParams, profile: p })}`;
         return (
           <Link
             key={p}
