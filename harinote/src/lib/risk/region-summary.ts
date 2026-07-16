@@ -14,6 +14,7 @@ import { SIGUNGU_SEATS } from "@/lib/risk/regions";
 import {
   getPlacesWithSafety,
   getPlacesWithSafetyOnDate,
+  getPlacesWithSafetyOnRange,
   type PlaceWithSafety,
 } from "@/lib/datasource";
 
@@ -73,13 +74,17 @@ export function summarizeRegions(places: PlaceWithSafety[]): RegionSummary[] {
 /**
  * 전체 관광지의 점수를 시군별로 요약 — 서버 전용.
  * profile·dateISO를 주면 그 조건의 점수로 지도가 반응한다 (홈 온보딩).
+ * endISO까지 주면 기간 모드 — 기간 중 최악일 대표점수 기준.
  */
 export async function getRegionSummaries(
   profile: Profile = "default",
   dateISO?: string,
+  endISO?: string,
 ): Promise<RegionSummary[]> {
   const places = dateISO
-    ? await getPlacesWithSafetyOnDate(profile, dateISO)
+    ? endISO
+      ? await getPlacesWithSafetyOnRange(profile, dateISO, endISO)
+      : await getPlacesWithSafetyOnDate(profile, dateISO)
     : await getPlacesWithSafety(undefined, profile);
   return summarizeRegions(places);
 }

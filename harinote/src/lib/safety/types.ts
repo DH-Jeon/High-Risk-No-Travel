@@ -18,6 +18,8 @@ export const PROFILE_LABEL: Record<Profile, string> = {
 export interface RiskInput {
   /** 최고기온 ℃ (기상청 단기예보) */
   tempC: number;
+  /** 일 최대 체감온도 ℃ (기상청 여름철 산식) — 없으면 tempC로 폭염 평가 (계절 모드·mock 경로) */
+  apparentTempC?: number;
   /** 강수확률 % */
   rainProbPct: number;
   /** 예상 강수량 mm (선택) */

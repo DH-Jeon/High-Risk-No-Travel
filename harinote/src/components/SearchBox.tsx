@@ -6,14 +6,17 @@ interface Props {
   profile?: Profile;
   /** 현재 여행 날짜(YYYY-MM-DD) — hidden으로 검색 결과에 유지 */
   date?: string;
+  /** 기간 종료 날짜 — hidden으로 검색 결과에 유지 */
+  end?: string;
   compact?: boolean;
 }
 
-/** GET 폼 검색창 — JS 없이 /places?q=&profile=&date= 로 이동 */
+/** GET 폼 검색창 — JS 없이 /places?q=&profile=&date=&end= 로 이동 */
 export default function SearchBox({
   defaultQuery = "",
   profile = "default",
   date,
+  end,
   compact = false,
 }: Props) {
   return (
@@ -50,6 +53,7 @@ export default function SearchBox({
           <input type="hidden" name="profile" value={profile} />
         )}
         {date && <input type="hidden" name="date" value={date} />}
+        {end && <input type="hidden" name="end" value={end} />}
         <button
           type="submit"
           className={`shrink-0 rounded-xl bg-teal-600 font-bold text-white transition-colors hover:bg-teal-700 ${

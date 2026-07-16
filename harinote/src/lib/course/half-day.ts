@@ -13,6 +13,7 @@
  */
 import type { PlaceWithSafety } from "@/lib/datasource";
 import type { Alternative } from "@/lib/reco/alternatives";
+import { CAT3_CAFE } from "@/lib/tour/types";
 import {
   COURSE_ANCHOR_SWITCH_MIN_GAIN,
   COURSE_MIN_STOP_SCORE,
@@ -82,6 +83,8 @@ function pickLunch(
   let bestKm = Infinity;
   for (const c of candidates) {
     if (c.contentTypeId !== 39) continue;
+    // 점심 슬롯은 식사 목적 — 카페/전통찻집(A05020900)은 제외
+    if (c.cat3 === CAT3_CAFE) continue;
     if (excludeIds.has(c.contentId)) continue;
     if (c.safety.score < COURSE_MIN_STOP_SCORE) continue;
     const km = haversineKm(anchor.lat, anchor.lng, c.lat, c.lng);

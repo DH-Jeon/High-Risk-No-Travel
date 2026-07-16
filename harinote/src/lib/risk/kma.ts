@@ -6,6 +6,7 @@
  * 서버 전용 — KMA_API_KEY는 클라이언트 번들에 노출 금지.
  */
 import { z } from "zod";
+import { apparentTempSummerC } from "./apparent-temp";
 import { createTtlCache } from "./cache";
 
 const BASE_URL =
@@ -29,6 +30,8 @@ export interface KmaDailyWeather {
   windMs?: number;
   /** 오늘 시간당 강수량(PCP) 합계 mm — 전부 "강수없음"이면 undefined */
   rainMm?: number;
+  /** 시간별 TMP×REH 쌍으로 계산한 일 최대 체감온도 ℃ (기상청 여름철 산식) */
+  apparentTempC?: number;
 }
 
 /** KST 날짜(YYYYMMDD)와 자정 기준 경과 분 — 서버 타임존에 의존하지 않는다 */
@@ -142,11 +145,28 @@ export function summarizeDaily(
     dayItems = items.filter((i) => i.fcstDate === earliest);
   }
 
+  // 미래 날짜 조회 전용 가드: 응답이 하루 중간에서 끊기면(발표시각별 예보기간 한계·
+  // 행 수 절단) 오전 예보만으로 "그날 최고기온"이 과소평가된 반쪽 요약이 만들어진다.
+  // 일 최고를 판단할 수 있는 TMX 또는 15시 이후 TMP가 없으면 빈 요약을 반환해
+  // "예보 없음 → 계절모드 폴백" 신호로 처리한다. (오늘 조회는 저녁이면 남은 시간대만
+  // 있는 게 정상이라 가드를 적용하지 않는다)
+  if (!fallbackToEarliest) {
+    const coversAfternoon = dayItems.some(
+      (i) =>
+        i.category === "TMX" ||
+        (i.category === "TMP" && i.fcstTime >= "1500"),
+    );
+    if (!coversAfternoon) return {};
+  }
+
   let tmx: number | undefined;
   let tmpMax: number | undefined;
   let popMax: number | undefined;
   let wsdMax: number | undefined;
   let pcpSum: number | undefined;
+  // 체감온도용 시간별 TMP·REH 쌍 — TMX(일최고기온) 발생 시각의 REH는 알 수 없어 시간별 TMP 기반 근사다
+  const tmpByTime = new Map<string, number>();
+  const rehByTime = new Map<string, number>();
 
   for (const item of dayItems) {
     const n = Number(item.fcstValue);
@@ -155,7 +175,13 @@ export function summarizeDaily(
         if (Number.isFinite(n)) tmx = n;
         break;
       case "TMP":
-        if (Number.isFinite(n)) tmpMax = tmpMax === undefined ? n : Math.max(tmpMax, n);
+        if (Number.isFinite(n)) {
+          tmpMax = tmpMax === undefined ? n : Math.max(tmpMax, n);
+          tmpByTime.set(item.fcstTime, n);
+        }
+        break;
+      case "REH":
+        if (Number.isFinite(n)) rehByTime.set(item.fcstTime, n);
         break;
       case "POP":
         if (Number.isFinite(n)) popMax = popMax === undefined ? n : Math.max(popMax, n);
@@ -172,12 +198,27 @@ export function summarizeDaily(
     }
   }
 
+  // 일 최대 체감온도 — TMP·REH가 모두 있는 시각만 계산, 쌍이 하나도 없으면 undefined.
+  // 기상청 여름철 산식의 공식 적용 기간(5~9월) 밖에서는 계산하지 않는다 —
+  // 겨울에 적용하면 풍속냉각과 반대로 기온보다 높은 "체감"이 표기되는 오류
+  const effMonth = Number(dayItems[0]?.fcstDate.slice(4, 6));
+  let apparentMax: number | undefined;
+  if (effMonth >= 5 && effMonth <= 9) {
+    for (const [time, tmp] of tmpByTime) {
+      const reh = rehByTime.get(time);
+      if (reh === undefined) continue;
+      const at = apparentTempSummerC(tmp, reh);
+      apparentMax = apparentMax === undefined ? at : Math.max(apparentMax, at);
+    }
+  }
+
   const weather: KmaDailyWeather = {};
   const tempC = tmx ?? tmpMax;
   if (tempC !== undefined) weather.tempC = tempC;
   if (popMax !== undefined) weather.rainProbPct = popMax;
   if (wsdMax !== undefined) weather.windMs = wsdMax;
   if (pcpSum !== undefined) weather.rainMm = Math.round(pcpSum * 10) / 10;
+  if (apparentMax !== undefined) weather.apparentTempC = apparentMax;
   return weather;
 }
 
@@ -201,7 +242,9 @@ export async function fetchKmaDailyWeatherRaw(
     base_time: baseTime,
     nx: String(nx),
     ny: String(ny),
-    numOfRows: "500", // 하루치(24h × 12카테고리 ≈ 288행)를 충분히 커버
+    // 응답 전체(발표별 최대 3일치+α)를 한 페이지로 — 실측 totalCount 944(02시 발표).
+    // 500이면 뒤쪽 날짜(D+2~3)가 잘려 "반쪽 예보"가 되거나 D+3 조회가 항상 실패한다
+    numOfRows: "1300",
     pageNo: "1",
   });
 

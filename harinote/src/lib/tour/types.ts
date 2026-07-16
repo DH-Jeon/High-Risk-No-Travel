@@ -21,6 +21,19 @@ export const SUPPORTED_CONTENT_TYPE_IDS = [
   12, 14, 39,
 ] as const satisfies readonly ContentTypeId[];
 
+/** TourAPI 소분류: 카페/전통찻집 — 음식점(39)의 서브셋 필터 (gangwon.json 295건) */
+export const CAT3_CAFE = "A05020900";
+export const CAT3_CAFE_LABEL = "카페";
+
+/** 유형 배지 라벨 — 카페 소분류(cat3)는 "음식점" 대신 "카페"로 표기 */
+export function placeTypeLabel(
+  place: Pick<Place, "contentTypeId" | "cat3">,
+): string {
+  return place.cat3 === CAT3_CAFE
+    ? CAT3_CAFE_LABEL
+    : CONTENT_TYPE_LABEL[place.contentTypeId];
+}
+
 /**
  * KorService2 areaBasedList2 응답 item 원본 형태 (모든 값이 문자열).
  * mapx = 경도(lng), mapy = 위도(lat) — 순서 주의!

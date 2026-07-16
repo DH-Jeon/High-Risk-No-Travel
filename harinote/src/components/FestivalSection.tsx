@@ -7,7 +7,7 @@ import Image from "next/image";
 import type { Profile } from "@/lib/safety/types";
 import { fetchGangwonFestivals, type Festival } from "@/lib/tour/festival";
 import { getSpotSafety } from "@/lib/datasource";
-import { formatKoreanDate } from "@/lib/date";
+import { formatKoreanDate, toKmaDate } from "@/lib/date";
 import SafetyScoreBadge from "@/components/SafetyScoreBadge";
 
 /** YYYYMMDD → "M.D" */
@@ -85,18 +85,30 @@ async function FestivalCard({
 
 export default async function FestivalSection({
   dateISO,
+  endISO,
   profile,
 }: {
   dateISO?: string;
+  /** 기간 종료 날짜 — 있으면 "기간과 겹치는" 축제로 확장 (dateISO 필수) */
+  endISO?: string;
   profile: Profile;
 }) {
   const festivals = await fetchGangwonFestivals(dateISO);
   if (festivals.length === 0) return null;
 
-  const ongoing = festivals.filter((f) => f.ongoing);
-  const upcoming = festivals.filter((f) => !f.ongoing).slice(0, MAX_UPCOMING);
+  // 기간 모드: 시작일에 이미 진행 중(ongoing)이거나, 종료일 전에 시작하는 축제는
+  // 기간과 겹친다 (API가 dateISO 이후 종료 축제만 주므로 f.start <= end면 겹침 확정)
+  const endYmd = endISO ? toKmaDate(endISO) : undefined;
+  const overlaps = (f: Festival) =>
+    f.ongoing || (endYmd !== undefined && f.start <= endYmd);
+  const ongoing = festivals.filter(overlaps);
+  const upcoming = festivals.filter((f) => !overlaps(f)).slice(0, MAX_UPCOMING);
   const show = [...ongoing, ...upcoming];
-  const dateLabel = dateISO ? formatKoreanDate(dateISO) : "지금";
+  const dateLabel = dateISO
+    ? endISO
+      ? `${formatKoreanDate(dateISO)}~${formatKoreanDate(endISO)}`
+      : formatKoreanDate(dateISO)
+    : "지금";
 
   return (
     <section className="mt-8" aria-label="축제·행사">

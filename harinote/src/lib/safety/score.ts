@@ -59,29 +59,36 @@ export function computeSafetyScore(
   const factors: RiskFactor[] = [];
 
   // ── 폭염 (Weather) — 민감층(아이·부모님)은 임계값 하향 (weights.ts 근거 주석 참조) ──
+  // 기상청 폭염특보 기준이 "일 최고 체감온도"이므로 체감온도가 있으면 그것으로 평가,
+  // 없으면(계절 모드·mock 경로) 건구 최고기온으로 평가
+  const heatEvalC = input.apparentTempC ?? input.tempC;
   const heatAdvisory = HEAT.ADVISORY_C - prof.heatShiftC;
   const heatWarning = HEAT.WARNING_C - prof.heatShiftC;
   const heatNote = prof.heatShiftC > 0 ? " · 동반 민감 기준" : "";
   const heat = finalize(
-    heatPoints(input.tempC, prof.heatShiftC),
+    heatPoints(heatEvalC, prof.heatShiftC),
     env.heat * prof.heat,
     HEAT.MAX_POINTS,
   );
+  const heatValueLabel =
+    input.apparentTempC !== undefined
+      ? `체감 ${input.apparentTempC}℃(기온 ${input.tempC}℃)`
+      : `최고기온 ${input.tempC}℃`;
   factors.push({
     key: "heat",
     label: "폭염",
-    value: input.tempC,
+    value: heatEvalC,
     unit: "℃",
     threshold: heatAdvisory,
     points: heat,
     maxPoints: HEAT.MAX_POINTS,
     level: levelForPoints(heat, HEAT.MAX_POINTS),
     description:
-      input.tempC >= heatWarning
-        ? `최고기온 ${input.tempC}℃ — 폭염경보 기준(${heatWarning}℃) ${vsThreshold(input.tempC, heatWarning)}${heatNote}`
-        : input.tempC >= heatAdvisory
-          ? `최고기온 ${input.tempC}℃ — 폭염주의보 기준(${heatAdvisory}℃) ${vsThreshold(input.tempC, heatAdvisory)}${heatNote}`
-          : `최고기온 ${input.tempC}℃ — 폭염주의보 기준(${heatAdvisory}℃) 미만${heatNote}`,
+      heatEvalC >= heatWarning
+        ? `${heatValueLabel} — 폭염경보 기준(${heatWarning}℃) ${vsThreshold(heatEvalC, heatWarning)}${heatNote}`
+        : heatEvalC >= heatAdvisory
+          ? `${heatValueLabel} — 폭염주의보 기준(${heatAdvisory}℃) ${vsThreshold(heatEvalC, heatAdvisory)}${heatNote}`
+          : `${heatValueLabel} — 폭염주의보 기준(${heatAdvisory}℃) 미만${heatNote}`,
   });
 
   // ── 강수·강풍 (Weather) — 강수/강풍에 서로 다른 환경 가중 적용 후 합산 clamp ──

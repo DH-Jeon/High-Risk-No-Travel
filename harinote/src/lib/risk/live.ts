@@ -90,6 +90,9 @@ export async function getLiveRiskInput(
       // 실예보가 "강수없음"이면 mock의 rainMm도 제거 — 날씨 필드는 통째로 실데이터화
       if (w.rainMm !== undefined) input.rainMm = w.rainMm;
       else delete input.rainMm;
+      // 체감온도 — rainMm과 같은 패턴: REH 쌍이 없으면 삭제해 mock 잔존값 혼입 방지
+      if (w.apparentTempC !== undefined) input.apparentTempC = w.apparentTempC;
+      else delete input.apparentTempC;
     }
   }
 
@@ -137,5 +140,7 @@ export async function getForecastRiskInput(
   if (w.windMs !== undefined) input.windMs = w.windMs;
   if (w.rainMm !== undefined) input.rainMm = w.rainMm;
   else delete input.rainMm;
+  if (w.apparentTempC !== undefined) input.apparentTempC = w.apparentTempC;
+  else delete input.apparentTempC;
   return input;
 }

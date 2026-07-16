@@ -37,6 +37,27 @@ export function monthOfISO(dateISO: string): number {
   return Number(dateISO.slice(5, 7));
 }
 
+/** dateISO + n일 → YYYY-MM-DD (n은 음수 가능). ISO 문자열은 UTC ms 산술이라 타임존 무관 */
+export function addDaysISO(iso: string, n: number): string {
+  return new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+}
+
+/** 시작~종료 날짜 목록 (양끝 포함). end < start면 [start]로 방어 */
+export function eachDayISO(startISO: string, endISO: string): string[] {
+  const days: string[] = [];
+  for (let d = startISO; d <= endISO; d = addDaysISO(d, 1)) days.push(d);
+  return days.length > 0 ? days : [startISO];
+}
+
+/** 숙박 일수 — 7/20~7/23이면 3(박). 같은 날이나 역순이면 0 */
+export function nightsBetween(startISO: string, endISO: string): number {
+  const ms =
+    Date.parse(`${endISO}T00:00:00Z`) - Date.parse(`${startISO}T00:00:00Z`);
+  return Math.max(0, Math.round(ms / 86_400_000));
+}
+
 /** 화면 표기용 "M월 D일 (요일)" */
 export function formatKoreanDate(dateISO: string): string {
   return new Intl.DateTimeFormat("ko-KR", {

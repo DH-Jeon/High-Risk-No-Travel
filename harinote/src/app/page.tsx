@@ -11,7 +11,7 @@ import DateChips from "@/components/DateChips";
 import ProfileChips from "@/components/ProfileChips";
 import RegionDashboard from "@/components/RegionDashboard";
 import {
-  parseDate,
+  parseDateRange,
   parseProfile,
   profileParam,
   buildQuery,
@@ -28,11 +28,16 @@ interface Props {
 export default async function Home({ searchParams }: Props) {
   const sp = await searchParams;
   const profile = parseProfile(sp.profile);
-  const date = parseDate(sp.date);
+  // 기간 모드(?date=&end=) — end가 없으면 기존 단일 날짜와 동일 동작
+  const { start: date, end } = parseDateRange(sp.date, sp.end);
 
   // 선택한 조건(언제·누구와)이 지도·시군 요약에 바로 반영된다
-  const regions = await getRegionSummaries(profile, date);
-  const dateLabel = date ? formatKoreanDate(date) : "오늘";
+  const regions = await getRegionSummaries(profile, date, end);
+  const dateLabel = date
+    ? end
+      ? `${formatKoreanDate(date)} ~ ${formatKoreanDate(end)}`
+      : formatKoreanDate(date)
+    : "오늘";
 
   return (
     <div className="bg-gradient-to-b from-teal-50/60 to-slate-50">
@@ -47,7 +52,7 @@ export default async function Home({ searchParams }: Props) {
             알려드립니다.
           </p>
           <div className="mt-4">
-            <SearchBox profile={profile} date={date} />
+            <SearchBox profile={profile} date={date} end={end} />
           </div>
 
           {/* 온보딩 — 누르면 지도·점수가 그 조건으로 바로 갱신된다 */}
@@ -59,6 +64,7 @@ export default async function Home({ searchParams }: Props) {
               <DateChips
                 basePath="/"
                 current={date}
+                end={end}
                 extraParams={{ profile: profileParam(profile) }}
               />
             </div>
@@ -70,11 +76,11 @@ export default async function Home({ searchParams }: Props) {
                 <ProfileChips
                   basePath="/"
                   current={profile}
-                  extraParams={{ date }}
+                  extraParams={{ date, end }}
                   exclude={["own_car"]}
                 />
                 <Link
-                  href={`/places${buildQuery({ pet: "1", profile: profileParam(profile), date })}`}
+                  href={`/places${buildQuery({ pet: "1", profile: profileParam(profile), date, end })}`}
                   className="inline-flex items-center gap-1 rounded-full bg-white px-3.5 py-1.5 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-amber-50 hover:text-amber-700"
                 >
                   🐶 반려동물과 함께
@@ -90,7 +96,7 @@ export default async function Home({ searchParams }: Props) {
             {POPULAR.map((name) => (
               <Link
                 key={name}
-                href={`/places${buildQuery({ q: name, profile: profileParam(profile), date })}`}
+                href={`/places${buildQuery({ q: name, profile: profileParam(profile), date, end })}`}
                 className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-teal-50 hover:text-teal-700 hover:ring-teal-300"
               >
                 {name}
@@ -104,13 +110,13 @@ export default async function Home({ searchParams }: Props) {
           <RegionDashboard
             regions={regions}
             dateLabel={dateLabel}
-            extraQuery={{ profile: profileParam(profile), date }}
+            extraQuery={{ profile: profileParam(profile), date, end }}
           />
         </section>
 
         {/* 축제·행사 — TourAPI 실시간, 등록 없으면 숨김 (스트리밍) */}
         <Suspense fallback={null}>
-          <FestivalSection dateISO={date} profile={profile} />
+          <FestivalSection dateISO={date} endISO={end} profile={profile} />
         </Suspense>
 
         {/* 출처·참고 */}

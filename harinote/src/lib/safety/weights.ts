@@ -11,6 +11,7 @@ import type { PlaceEnvType } from "@/lib/tour/types";
 // ─────────────────────────────────────────────
 // 폭염 (상한 25)
 // ─────────────────────────────────────────────
+// 입력은 체감온도(apparentTempC) 우선 — score.ts의 heatEvalC 참조
 export const HEAT = {
   /** 기상청 폭염주의보 발표 기준: 일 최고 체감온도 33℃ 이상 지속 예상 */
   ADVISORY_C: 33,

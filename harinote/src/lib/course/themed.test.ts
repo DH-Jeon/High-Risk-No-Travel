@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import type { PlaceWithSafety } from "@/lib/datasource";
 import type { RiskBreakdown, RiskLevel } from "@/lib/safety/types";
 import { buildThemedCourses } from "@/lib/course/themed";
+import { CAT3_CAFE } from "@/lib/tour/types";
 
 const SIGUNGU = 13; // 춘천시
 
@@ -136,6 +137,33 @@ describe("buildThemedCourses — 스톱 구성", () => {
     const courses = buildThemedCourses(SIGUNGU, [anchor, lunch, afternoon]);
     const slots = courses.nature!.stops.map((s) => s.slot);
     expect(slots).toEqual(["morning", "lunch", "afternoon"]);
+  });
+
+  it("최고점 음식점이 카페(A05020900)면 점심에서 제외하고 차순위 일반 음식점 선택", () => {
+    const anchor = makePlace();
+    const cafe = makeRestaurant({
+      lat: 37.88,
+      cat3: CAT3_CAFE,
+      safety: makeSafety(95),
+    });
+    const restaurant = makeRestaurant({ lat: 37.88, safety: makeSafety(80) });
+    const afternoon = makePlace({
+      lat: 37.88,
+      sigunguCode: 1,
+      safety: makeSafety(75),
+    });
+    const course = buildThemedCourses(SIGUNGU, [
+      anchor,
+      cafe,
+      restaurant,
+      afternoon,
+    ]).nature!;
+    const lunchStop = course.stops.find((s) => s.slot === "lunch")!;
+    expect(lunchStop.place.contentId).toBe(restaurant.contentId);
+    // 카페는 점심 대안(alternates)에도 등장하지 않는다
+    expect(lunchStop.alternates.map((a) => a.contentId)).not.toContain(
+      cafe.contentId,
+    );
   });
 
   it("totalKm는 추천 스톱 구간 거리 합이며 소수 1자리", () => {

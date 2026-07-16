@@ -17,7 +17,7 @@
  * - 테마 매칭 앵커가 없거나 스톱이 2개 미만이면 그 테마는 null
  */
 import type { PlaceWithSafety } from "@/lib/datasource";
-import type { PlaceEnvType } from "@/lib/tour/types";
+import { CAT3_CAFE, type PlaceEnvType } from "@/lib/tour/types";
 import type { RiskLevel } from "@/lib/safety/types";
 import {
   COURSE_MIN_STOP_SCORE,
@@ -148,6 +148,8 @@ function buildThemedCourse(
   // ── 점심: 앵커 반경 10km 내 음식점 (시군 경계 무관) ──
   const lunchPicks = selectTopCandidates(all, used, 3, (c) => {
     if (c.contentTypeId !== 39) return null;
+    // 점심 슬롯은 식사 목적 — 카페/전통찻집(A05020900)은 제외
+    if (c.cat3 === CAT3_CAFE) return null;
     const km = haversineKm(anchor.lat, anchor.lng, c.lat, c.lng);
     return km <= LUNCH_RADIUS_KM ? { score: c.safety.score, km } : null;
   });

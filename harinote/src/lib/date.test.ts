@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  addDaysISO,
   dayOffsetSeoul,
+  eachDayISO,
   isValidISODate,
   monthOfISO,
+  nightsBetween,
   toKmaDate,
   todayISOSeoul,
 } from "@/lib/date";
@@ -39,6 +42,63 @@ describe("isValidISODate", () => {
     expect(isValidISODate("2026-02-31")).toBe(false);
     expect(isValidISODate("2026-7-4")).toBe(false);
     expect(isValidISODate("내일")).toBe(false);
+  });
+});
+
+describe("addDaysISO", () => {
+  it("월말·연말 경계를 넘는다", () => {
+    expect(addDaysISO("2026-07-31", 1)).toBe("2026-08-01");
+    expect(addDaysISO("2026-12-31", 1)).toBe("2027-01-01");
+  });
+
+  it("윤년 2월을 처리한다 (2028년은 윤년)", () => {
+    expect(addDaysISO("2028-02-28", 1)).toBe("2028-02-29");
+    expect(addDaysISO("2028-02-29", 1)).toBe("2028-03-01");
+    expect(addDaysISO("2027-02-28", 1)).toBe("2027-03-01");
+  });
+
+  it("음수·0도 동작한다", () => {
+    expect(addDaysISO("2026-08-01", -1)).toBe("2026-07-31");
+    expect(addDaysISO("2026-07-20", 0)).toBe("2026-07-20");
+  });
+});
+
+describe("eachDayISO", () => {
+  it("양끝을 포함한다", () => {
+    expect(eachDayISO("2026-07-20", "2026-07-23")).toEqual([
+      "2026-07-20",
+      "2026-07-21",
+      "2026-07-22",
+      "2026-07-23",
+    ]);
+  });
+
+  it("같은 날이면 1개", () => {
+    expect(eachDayISO("2026-07-20", "2026-07-20")).toEqual(["2026-07-20"]);
+  });
+
+  it("역순이면 [start]로 방어", () => {
+    expect(eachDayISO("2026-07-23", "2026-07-20")).toEqual(["2026-07-23"]);
+  });
+
+  it("월 경계를 넘는다", () => {
+    expect(eachDayISO("2026-07-30", "2026-08-02")).toEqual([
+      "2026-07-30",
+      "2026-07-31",
+      "2026-08-01",
+      "2026-08-02",
+    ]);
+  });
+});
+
+describe("nightsBetween", () => {
+  it("7/20~7/23 = 3박, 같은 날 = 0박", () => {
+    expect(nightsBetween("2026-07-20", "2026-07-23")).toBe(3);
+    expect(nightsBetween("2026-07-20", "2026-07-20")).toBe(0);
+  });
+
+  it("역순은 0으로 방어", () => {
+    expect(nightsBetween("2026-07-23", "2026-07-20")).toBe(0);
   });
 });
 
