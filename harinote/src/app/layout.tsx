@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Logo from "@/components/Logo";
 import NavTabs from "@/components/NavTabs";
+import SearchBox from "@/components/SearchBox";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -22,20 +23,21 @@ export default function RootLayout({
     <html lang="ko" className="h-full antialiased">
       <body className="flex min-h-full flex-col">
         <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
-          <div className="mx-auto flex h-14 max-w-5xl items-stretch justify-between px-4">
+          <div className="mx-auto flex h-14 max-w-6xl items-stretch justify-between gap-3 px-4">
             <Link
               href="/"
-              className="flex items-center gap-2 self-center"
+              className="flex shrink-0 items-center gap-2 self-center"
               aria-label="하리노트 홈으로"
             >
               <Logo className="h-7 w-7" />
               <span className="text-lg font-bold tracking-tight text-slate-900">
                 하리노트
               </span>
-              <span className="hidden text-xs font-medium text-slate-400 sm:inline">
-                HARI-NOTE · High Risk, No Travel
-              </span>
             </Link>
+            {/* 전역 검색 — 모든 페이지에서 접근 (md+, 모바일은 페이지 내 검색) */}
+            <div className="hidden max-w-xs flex-1 items-center self-center md:flex">
+              <SearchBox compact />
+            </div>
             <NavTabs />
           </div>
         </header>

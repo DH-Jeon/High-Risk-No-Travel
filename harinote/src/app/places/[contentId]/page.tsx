@@ -8,7 +8,6 @@ import {
   getPlacesWithSafetyOnDate,
 } from "@/lib/datasource";
 import { formatKoreanDate } from "@/lib/date";
-import DateChips from "@/components/DateChips";
 import { CONTENT_TYPE_LABEL, ENV_TYPE_LABEL } from "@/lib/tour/types";
 import { PROFILE_LABEL, RISK_CATEGORY_LABELS } from "@/lib/safety/types";
 import { Suspense } from "react";
@@ -23,7 +22,6 @@ import { kidsAmenityLabels, kidsInfoOf } from "@/lib/tour/kids-friendly";
 import { summaryOf } from "@/lib/tour/summaries";
 import ProfileChips from "@/components/ProfileChips";
 import RiskBreakdownBar from "@/components/RiskBreakdownBar";
-import RiskTypeBadge from "@/components/RiskTypeBadge";
 import SafetyScoreBadge from "@/components/SafetyScoreBadge";
 import {
   parseDate,
@@ -141,7 +139,6 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
             <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
               {ENV_TYPE_LABEL[place.envType]}
             </span>
-            <RiskTypeBadge contentId={place.contentId} />
           </div>
           <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
             {place.title}
@@ -243,19 +240,12 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
                 <span aria-hidden="true">🧭</span> 길찾기 (실제 소요시간)
               </a>
             </div>
-            <div className="mt-4">
-              <p className="mb-2 text-sm font-semibold text-slate-600">
-                언제 가나요? —{" "}
-                <strong className="text-sky-700">
-                  {activeDate ? formatKoreanDate(activeDate) : "오늘"} 기준
-                </strong>
+            {/* 날짜는 홈에서 정한 여행 날짜 기준 (여기선 표시만) */}
+            {activeDate && (
+              <p className="mt-3 text-xs font-semibold text-sky-700">
+                {formatKoreanDate(activeDate)} 여행 기준 점수예요
               </p>
-              <DateChips
-                basePath={`/places/${place.contentId}`}
-                current={activeDate}
-                extraParams={{ profile: profileParam(profile) }}
-              />
-            </div>
+            )}
             <div className="mt-4">
               <p className="mb-2 text-sm font-semibold text-slate-600">
                 동행에 따라 점수가 달라져요 —{" "}

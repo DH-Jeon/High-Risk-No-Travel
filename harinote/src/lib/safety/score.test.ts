@@ -125,6 +125,20 @@ describe("heat — 기상청 폭염주의보 33℃ / 폭염경보 35℃", () => 
     expect(kids).toBeGreaterThan(0);
   });
 
+  it("아이·부모님 동시(with_kids_seniors): 폭염 하향 + 미먼 민감 + 의료 ×1.5 모두 적용", () => {
+    const b = run(
+      { tempC: 31, pm25: 40, emergencyRoomKm: 30 },
+      "outdoor_general",
+      "with_kids_seniors",
+    );
+    // 폭염: 31℃가 하향으로 주의보 구간(12점) — 아이·부모님 단독과 동일
+    expect(factor(b, "heat").points).toBe(12);
+    // 미세먼지: 민감군 곡선(나쁨 40 → 12점, 아이 효과)
+    expect(factor(b, "pm").points).toBe(12);
+    // 응급의료: ×1.5 (부모님 효과) — 30km는 상한 10
+    expect(factor(b, "medical").points).toBe(10);
+  });
+
   it("민감층 폭염도 상한 25에서 clamp", () => {
     expect(factor(run({ tempC: 38 }, "outdoor_general", "with_kids"), "heat").points).toBe(25);
   });
@@ -243,6 +257,45 @@ describe("forest_fire — 산림청 산불위험 4단계", () => {
   });
 });
 
+describe("landslide — 강우×지형 프록시 + 예보발령 override", () => {
+  it("비 안 오면 산사태 요인 없음(불이익 금지)", () => {
+    expect(run({}, "outdoor_mountain").factors.some((f) => f.key === "landslide")).toBe(false);
+  });
+
+  it("호우(80mm+) 산악은 경보 수준 감점, 계곡도 감점", () => {
+    const mtn = factor(run({ rainMm: 90, rainProbPct: 90 }, "outdoor_mountain"), "landslide");
+    expect(mtn.points).toBe(15);
+    expect(mtn.level).toBe("high");
+    const valley = run({ rainMm: 90, rainProbPct: 90 }, "outdoor_water");
+    expect(valley.factors.some((f) => f.key === "landslide")).toBe(true);
+  });
+
+  it("중간 강수(40~80mm) 산악은 주의보 수준(8점)", () => {
+    expect(factor(run({ rainMm: 50 }, "outdoor_mountain"), "landslide").points).toBe(8);
+  });
+
+  it("같은 호우여도 평지·해안은 한 단계 완화, 실내는 노출 없음", () => {
+    // 평지: 80mm → 경보(2) 완화 → 주의보(1)=8점
+    expect(factor(run({ rainMm: 90 }, "outdoor_general"), "landslide").points).toBe(8);
+    // 실내: 취약도 0 → 요인 없음
+    expect(run({ rainMm: 90 }, "indoor").factors.some((f) => f.key === "landslide")).toBe(false);
+  });
+
+  it("공식 예보발령(경보)은 강수량 낮아도 프록시보다 상향 반영", () => {
+    // 비 거의 없어 프록시=0이지만 산림청 경보(2)면 15점, description은 '예보발령'
+    const f = factor(run({ rainMm: 0, landslideLevel: 2 }, "outdoor_mountain"), "landslide");
+    expect(f.points).toBe(15);
+    expect(f.description).toContain("예보발령");
+  });
+
+  it("프록시가 공식보다 높으면 프록시 유지, description은 '추정'", () => {
+    // 산악 호우 프록시=2(15점), 공식 주의보=1 → max=2 유지
+    const f = factor(run({ rainMm: 90, landslideLevel: 1 }, "outdoor_mountain"), "landslide");
+    expect(f.points).toBe(15);
+    expect(f.description).toContain("추정");
+  });
+});
+
 describe("medical — 응급의료 골든타임 거리(10/20/30km)", () => {
   it("30km 이상은 상한 10", () => {
     expect(factor(run({ emergencyRoomKm: 35 }), "medical").points).toBe(10);
@@ -328,7 +381,7 @@ describe("점수 일관성 / 등급", () => {
     const sum = (keys: RiskFactorKey[]) =>
       b.factors.filter((f) => keys.includes(f.key)).reduce((s, f) => s + f.points, 0);
     expect(b.weatherRisk).toBe(sum(["heat", "rain_wind", "pm"]));
-    expect(b.disasterRisk).toBe(sum(["forest_fire", "shelter"]));
+    expect(b.disasterRisk).toBe(sum(["forest_fire", "landslide", "shelter"]));
     expect(b.medicalRisk).toBe(sum(["medical"]));
     expect(b.mobilityRisk).toBe(sum(["road"]));
   });

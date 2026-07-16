@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { parsePcp, pickBaseDateTime, summarizeDaily } from "@/lib/risk/kma";
+import {
+  feelsLikeSummerC,
+  parsePcp,
+  pickBaseDateTime,
+  summarizeDaily,
+} from "@/lib/risk/kma";
 
 /** KST 시각 문자열로 Date 생성 — 테스트 머신 타임존에 무관 */
 function kst(iso: string): Date {
@@ -90,6 +95,46 @@ describe("parsePcp (강수량 문자열 파싱)", () => {
     expect(parsePcp("-")).toBeUndefined();
     expect(parsePcp(null)).toBeUndefined();
     expect(parsePcp("")).toBeUndefined();
+  });
+});
+
+describe("feelsLikeSummerC (여름 체감온도)", () => {
+  it("습한 날은 체감이 기온보다 높다", () => {
+    const humid = feelsLikeSummerC(32, 80);
+    expect(humid).toBeGreaterThan(32);
+  });
+
+  it("같은 기온이면 습도 높을수록 체감 높다", () => {
+    expect(feelsLikeSummerC(32, 80)).toBeGreaterThan(feelsLikeSummerC(32, 40));
+  });
+
+  it("건조하면 체감 ≈ 기온 (하한은 기온)", () => {
+    const dry = feelsLikeSummerC(32, 20);
+    expect(dry).toBeGreaterThanOrEqual(32);
+    expect(dry).toBeLessThan(34);
+  });
+
+  it("25℃ 미만은 체감 개념 없이 기온 그대로", () => {
+    expect(feelsLikeSummerC(20, 90)).toBe(20);
+  });
+});
+
+describe("summarizeDaily — 체감온도", () => {
+  it("기온+습도 있으면 체감온도로 폭염 판정 (습한 32℃ → 33℃+)", () => {
+    const items = [
+      { category: "TMP", fcstDate: "20260703", fcstTime: "1500", fcstValue: "32" },
+      { category: "REH", fcstDate: "20260703", fcstTime: "1500", fcstValue: "80" },
+    ];
+    const w = summarizeDaily(items, "20260703");
+    expect(w.tempC).toBeGreaterThan(32); // 체감 상승 반영
+  });
+
+  it("습도 없으면 최고기온(TMX) 그대로 (기존 동작 유지)", () => {
+    const items = [
+      { category: "TMX", fcstDate: "20260703", fcstTime: "1500", fcstValue: "33" },
+      { category: "TMP", fcstDate: "20260703", fcstTime: "1500", fcstValue: "31" },
+    ];
+    expect(summarizeDaily(items, "20260703").tempC).toBe(33);
   });
 });
 

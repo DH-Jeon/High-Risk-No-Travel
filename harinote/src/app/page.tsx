@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Suspense } from "react";
 import { getRegionSummaries } from "@/lib/risk/region-summary";
 import FestivalSection from "@/components/FestivalSection";
@@ -7,22 +6,17 @@ import { hasForestKey } from "@/lib/risk/forest";
 import { medicalDataSource } from "@/lib/risk/medical";
 import { formatKoreanDate } from "@/lib/date";
 import SearchBox from "@/components/SearchBox";
-import DateChips from "@/components/DateChips";
-import ProfileChips from "@/components/ProfileChips";
+import TripSetup from "@/components/TripSetup";
 import RegionDashboard from "@/components/RegionDashboard";
 import {
   parseDate,
   parseProfile,
   parseTransport,
   profileParam,
-  buildQuery,
   type SearchParamValue,
 } from "@/components/search-params";
 import { savedProfile, savedTransport, type Transport } from "@/lib/prefs";
 import PrefsPersist from "@/components/PrefsPersist";
-
-// 검색어별 결과가 실제로 존재하는지 확인된 목록 (gangwon.json 기준 — "경포해변"은 0건이라 "경포"로)
-const POPULAR = ["남이섬", "설악산", "경포", "정동진", "춘천", "속초"];
 
 interface Props {
   searchParams: Promise<Record<string, SearchParamValue>>;
@@ -55,90 +49,15 @@ export default async function Home({ searchParams }: Props) {
             기상·재난·의료 공공데이터로 관광지별 방문 주의 요인을 점수로
             알려드립니다.
           </p>
-          <div className="mt-4">
+          {/* 모바일 검색 (md+는 네비바 전역 검색 사용) */}
+          <div className="mt-4 md:hidden">
             <SearchBox profile={profile} date={date} />
           </div>
 
           <PrefsPersist profile={profile} transport={transport} />
 
-          {/* 온보딩 — 누르면 지도·점수가 그 조건으로 바로 갱신되고, 선택은 기억된다 */}
-          <div className="mt-4 space-y-3">
-            <div>
-              <p className="mb-1.5 text-sm font-semibold text-slate-600">
-                언제 가시나요?
-              </p>
-              <DateChips
-                basePath="/"
-                current={date}
-                extraParams={{ profile: profileParam(profile) }}
-              />
-            </div>
-            <div>
-              <p className="mb-1.5 text-sm font-semibold text-slate-600">
-                누구와 함께 가시나요?
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <ProfileChips
-                  basePath="/"
-                  current={profile}
-                  extraParams={{ date }}
-                />
-                <Link
-                  href={`/places${buildQuery({ pet: "1", profile: profileParam(profile), date })}`}
-                  className="inline-flex items-center gap-1 rounded-full bg-white px-3.5 py-1.5 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-amber-50 hover:text-amber-700"
-                >
-                  🐶 반려동물과 함께
-                </Link>
-              </div>
-            </div>
-            <div>
-              <p className="mb-1.5 text-sm font-semibold text-slate-600">
-                어떻게 이동하시나요?{" "}
-                <span className="font-normal text-slate-400">
-                  — 한 번 고르면 기억돼요
-                </span>
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {(
-                  [
-                    { key: "transit", label: "🚌 대중교통" },
-                    { key: "car", label: "🚗 자차" },
-                  ] as const
-                ).map((t) => (
-                  <Link
-                    key={t.key}
-                    href={`/${buildQuery({ profile: profileParam(profile), date, tr: t.key })}`}
-                    aria-current={transport === t.key ? "true" : undefined}
-                    className={`inline-flex items-center rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
-                      transport === t.key
-                        ? "bg-slate-700 text-white shadow-sm"
-                        : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100"
-                    }`}
-                  >
-                    {t.label}
-                  </Link>
-                ))}
-                <span className="self-center text-xs text-slate-400">
-                  자차는 대체지·코스를 더 넓게 (30→50km) 찾아드려요
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold text-slate-500">
-              인기 검색
-            </span>
-            {POPULAR.map((name) => (
-              <Link
-                key={name}
-                href={`/places${buildQuery({ q: name, profile: profileParam(profile), date })}`}
-                className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-teal-50 hover:text-teal-700 hover:ring-teal-300"
-              >
-                {name}
-              </Link>
-            ))}
-          </div>
+          {/* 여행 기간·출발일·이동수단 선택 → 계획 저장 + 안전지도 갱신 */}
+          <TripSetup transport={transport} />
         </div>
 
         {/* 안전 지도 대시보드 — 선택 조건 기준 */}
