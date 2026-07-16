@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { apparentTempSummerC } from "@/lib/risk/apparent-temp";
 import { parsePcp, pickBaseDateTime, summarizeDaily } from "@/lib/risk/kma";
 
 /** KST 시각 문자열로 Date 생성 — 테스트 머신 타임존에 무관 */
@@ -141,10 +142,70 @@ describe("summarizeDaily", () => {
     expect(summarizeDaily(items, "20260703").tempC).toBe(30);
   });
 
+  it("TMP·REH 쌍이 있으면 apparentTempC는 시간별 체감온도의 최댓값", () => {
+    const items = [
+      item("TMP", "29", "20260703", "1200"),
+      item("REH", "70", "20260703", "1200"),
+      item("TMP", "31", "20260703", "1500"),
+      item("REH", "80", "20260703", "1500"),
+    ];
+    const w = summarizeDaily(items, "20260703");
+    // 최댓값은 15시 쌍(31℃×80%) — 폭염주의보 상황이면 33℃ 이상
+    expect(w.apparentTempC).toBe(apparentTempSummerC(31, 80));
+    expect(w.apparentTempC!).toBeGreaterThanOrEqual(33);
+    // 기존 필드는 그대로 (tempC는 TMP 최댓값)
+    expect(w.tempC).toBe(31);
+  });
+
+  it("REH가 없으면 apparentTempC는 undefined", () => {
+    const items = [item("TMP", "31"), item("TMX", "33.0", "20260703", "1500")];
+    expect(summarizeDaily(items, "20260703").apparentTempC).toBeUndefined();
+  });
+
+  it("TMP·REH 시각이 어긋나면 짝지어진 시각만 사용", () => {
+    const items = [
+      item("TMP", "33", "20260703", "1200"), // REH 없음 — 체감온도 계산에서 제외
+      item("TMP", "29", "20260703", "1500"),
+      item("REH", "70", "20260703", "1500"),
+      item("REH", "90", "20260703", "1800"), // TMP 없음 — 제외
+    ];
+    const w = summarizeDaily(items, "20260703");
+    expect(w.apparentTempC).toBe(apparentTempSummerC(29, 70));
+    // 12시 TMP 33℃가 최고기온이지만 체감온도에는 반영되지 않는다
+    expect(w.tempC).toBe(33);
+  });
+
   it("미래 날짜 조회(fallback 끔): 해당 날짜가 없으면 빈 요약 — 계절모드 폴백 신호", () => {
     const items = [item("TMX", "30.0", "20260704", "1500")];
     expect(summarizeDaily(items, "20260707", false)).toEqual({});
     // 해당 날짜가 있으면 정상 요약
     expect(summarizeDaily(items, "20260704", false).tempC).toBe(30);
+  });
+
+  it("여름철(5~9월) 밖에서는 apparentTempC를 계산하지 않는다 — 겨울 산식 오적용 방지", () => {
+    const items = [
+      item("TMP", "0", "20260115", "1200"),
+      item("REH", "80", "20260115", "1200"),
+      item("TMP", "2", "20260115", "1500"),
+      item("REH", "70", "20260115", "1500"),
+    ];
+    const w = summarizeDaily(items, "20260115");
+    expect(w.apparentTempC).toBeUndefined();
+    expect(w.tempC).toBe(2); // 건구기온 요약은 그대로
+  });
+
+  it("미래 날짜 조회: 오전 예보만 남은 반쪽 응답이면 빈 요약 — 최고기온 과소평가 방지", () => {
+    // TMX 없고 TMP도 15시 이전뿐 (응답 절단으로 하루 중간에서 끊긴 상황)
+    const truncated = [
+      item("TMP", "25", "20260705", "0600"),
+      item("TMP", "28", "20260705", "1000"),
+      item("POP", "20", "20260705", "0900"),
+    ];
+    expect(summarizeDaily(truncated, "20260705", false)).toEqual({});
+    // 15시 이후 TMP가 있으면 TMX 없이도 정상 요약
+    const covered = [...truncated, item("TMP", "31", "20260705", "1500")];
+    expect(summarizeDaily(covered, "20260705", false).tempC).toBe(31);
+    // 오늘 조회(fallback 켬)는 저녁에 남은 시간대만 있어도 가드를 적용하지 않는다
+    expect(summarizeDaily(truncated, "20260705").tempC).toBe(28);
   });
 });

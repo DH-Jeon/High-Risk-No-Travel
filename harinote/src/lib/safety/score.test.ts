@@ -134,6 +134,29 @@ describe("heat — 기상청 폭염주의보 33℃ / 폭염경보 35℃", () => 
     expect(f.description).toContain("34.2℃");
     expect(f.description).toContain("폭염주의보 기준(33℃)");
   });
+
+  it("apparentTempC가 있으면 폭염은 체감온도 기준으로 감점 — 체감 34℃/기온 31℃는 주의보 구간 17점", () => {
+    const f = factor(run({ tempC: 31, apparentTempC: 34 }), "heat");
+    // heatPoints(34) = 12 + (34-33)×5 = 17 — 건구 31℃(5점)가 아닌 체감 34℃ 기준
+    expect(f.points).toBe(17);
+    expect(f.value).toBe(34);
+    expect(f.description).toContain("체감");
+    expect(f.description).toContain("기온 31℃");
+    expect(f.description).toContain("폭염주의보 기준(33℃)");
+  });
+
+  it("apparentTempC가 경보 기준 이상이면 경보 문구로 표기", () => {
+    const f = factor(run({ tempC: 32, apparentTempC: 35.5 }), "heat");
+    expect(f.description).toContain("체감 35.5℃(기온 32℃)");
+    expect(f.description).toContain("폭염경보 기준(35℃)");
+  });
+
+  it("apparentTempC가 없으면 기존과 동일하게 tempC로 평가 (문구도 '최고기온')", () => {
+    const f = factor(run({ tempC: 34 }), "heat");
+    expect(f.points).toBe(17);
+    expect(f.description).toContain("최고기온 34℃");
+    expect(f.description).not.toContain("체감");
+  });
 });
 
 describe("rain_wind — 강수확률 30/60/80% 구간 + 강풍주의보 14m/s", () => {

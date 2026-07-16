@@ -6,10 +6,12 @@ import {
   getPlaceWithSafety,
   getPlacesWithSafety,
   getPlacesWithSafetyOnDate,
+  getPlacesWithSafetyOnRange,
+  getRangeSafety,
 } from "@/lib/datasource";
 import { formatKoreanDate } from "@/lib/date";
 import DateChips from "@/components/DateChips";
-import { CONTENT_TYPE_LABEL, ENV_TYPE_LABEL } from "@/lib/tour/types";
+import { ENV_TYPE_LABEL, placeTypeLabel } from "@/lib/tour/types";
 import { PROFILE_LABEL, RISK_CATEGORY_LABELS } from "@/lib/safety/types";
 import { Suspense } from "react";
 import { recommendAlternatives } from "@/lib/reco/alternatives";
@@ -24,8 +26,9 @@ import ProfileChips from "@/components/ProfileChips";
 import RiskBreakdownBar from "@/components/RiskBreakdownBar";
 import RiskTypeBadge from "@/components/RiskTypeBadge";
 import SafetyScoreBadge from "@/components/SafetyScoreBadge";
+import RangeDayStrip from "@/components/RangeDayStrip";
 import {
-  parseDate,
+  parseDateRange,
   parseProfile,
   profileParam,
   buildQuery,
@@ -59,21 +62,33 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
   if (!place) notFound();
 
   // 날짜 모드: D+1~3 예보 / D+4~ 계절 범위. 계산 불가면 오늘 모드 유지.
-  const date = parseDate(sp.date);
-  const dateSafety = date ? await getDateSafety(place, profile, date) : null;
+  // 기간 모드(?date=&end=): 일자별 점수 중 최악일이 대표 — 계산 불가면 단일/오늘로 폴백.
+  const { start: date, end } = parseDateRange(sp.date, sp.end);
+  const rangeSafety =
+    date && end ? await getRangeSafety(place, profile, date, end) : null;
+  const dateSafety = rangeSafety
+    ? rangeSafety.worst
+    : date
+      ? await getDateSafety(place, profile, date)
+      : null;
   const activeDate = dateSafety ? date : undefined;
+  const activeEnd = rangeSafety ? end : undefined;
 
-  // 대표 점수(랭킹·대체지 비교 기준): 오늘 점수 또는 날짜 점수(계절은 통상일)
+  // 대표 점수(랭킹·대체지 비교 기준): 오늘 점수 또는 날짜/최악일 점수(계절은 통상일)
   const safety = dateSafety ? dateSafety.breakdown : place.safety;
-  // 분석 섹션(감점 요약·요인 상세) 기준: 계절 모드는 궂은날 — "무엇을 주의할지"가 목적
+  // 분석 섹션(감점 요약·요인 상세) 기준: 계절 모드는 궂은날 — "무엇을 주의할지"가 목적.
+  // 기간 모드에서도 최악일에 같은 규칙을 적용한다 (단일 날짜와 동일 관계).
   const analysisSafety = dateSafety?.seasonal ? dateSafety.seasonal.bad : safety;
 
   // 대체지 추천: 전체 후보(요청 스코프 캐시로 재로드 비용 없음)에서 30km 이내 더 안전한 곳.
-  // 날짜 모드에서는 후보도 같은 날짜 기준으로 계산해 공정하게 비교한다.
+  // 날짜/기간 모드에서는 후보도 같은 기준으로 계산해 공정하게 비교한다.
   // 사진 갤러리(detailImage2)·후기(네이버)는 느린 외부 API라 Suspense로 스트리밍한다.
-  const candidates = activeDate
-    ? await getPlacesWithSafetyOnDate(profile, activeDate)
-    : await getPlacesWithSafety(undefined, profile);
+  const candidates =
+    activeDate && activeEnd
+      ? await getPlacesWithSafetyOnRange(profile, activeDate, activeEnd)
+      : activeDate
+        ? await getPlacesWithSafetyOnDate(profile, activeDate)
+        : await getPlacesWithSafety(undefined, profile);
 
   const alternatives = recommendAlternatives({ ...place, safety }, candidates);
 
@@ -113,7 +128,7 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
         <div>
           <div className="flex flex-wrap gap-1.5">
             <span className="rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-semibold text-teal-700 ring-1 ring-teal-200">
-              {CONTENT_TYPE_LABEL[place.contentTypeId]}
+              {placeTypeLabel(place)}
             </span>
             <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
               {ENV_TYPE_LABEL[place.envType]}
@@ -135,7 +150,9 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
               /* 계절 모드: 개별 날짜 예보가 없어 단일 점수를 단정하지 않고 범위로 안내 */
               <div className="rounded-2xl bg-white p-5 ring-1 ring-slate-200">
                 <p className="text-xs font-medium text-slate-500">
-                  {formatKoreanDate(dateSafety.dateISO)} 방문 —{" "}
+                  {rangeSafety
+                    ? `기간 중 가장 주의가 필요한 날(${formatKoreanDate(dateSafety.dateISO)}) 기준 — `
+                    : `${formatKoreanDate(dateSafety.dateISO)} 방문 — `}
                   {dateSafety.seasonal.month}월 · 30년 기후 기준
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -166,7 +183,9 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
                 size="lg"
                 label={
                   dateSafety
-                    ? `${formatKoreanDate(dateSafety.dateISO)} 예보 기준 안전 점수`
+                    ? rangeSafety
+                      ? `기간 중 가장 주의가 필요한 날(${formatKoreanDate(dateSafety.dateISO)}) 예보 기준 안전 점수`
+                      : `${formatKoreanDate(dateSafety.dateISO)} 예보 기준 안전 점수`
                     : "오늘의 안전 점수"
                 }
               />
@@ -176,6 +195,16 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
                 기상은 {dateSafety.dayOffset}일 후 예보, 미세먼지·산불위험은
                 현재값 기준입니다.
               </p>
+            )}
+            {/* 기간 일자별 점수 — 셀 클릭 시 그날 단일 날짜로 드릴다운 */}
+            {rangeSafety && (
+              <div className="mt-3">
+                <RangeDayStrip
+                  range={rangeSafety}
+                  basePath={`/places/${place.contentId}`}
+                  extraParams={{ profile: profileParam(profile) }}
+                />
+              </div>
             )}
             <div className="mt-3 flex flex-wrap gap-2">
               <Link
@@ -197,12 +226,18 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
               <p className="mb-2 text-sm font-semibold text-slate-600">
                 언제 가나요? —{" "}
                 <strong className="text-sky-700">
-                  {activeDate ? formatKoreanDate(activeDate) : "오늘"} 기준
+                  {activeDate
+                    ? `${formatKoreanDate(activeDate)}${
+                        activeEnd ? ` ~ ${formatKoreanDate(activeEnd)}` : ""
+                      }`
+                    : "오늘"}{" "}
+                  기준
                 </strong>
               </p>
               <DateChips
                 basePath={`/places/${place.contentId}`}
                 current={activeDate}
+                end={activeEnd}
                 extraParams={{ profile: profileParam(profile) }}
               />
             </div>
@@ -216,7 +251,7 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
               <ProfileChips
                 basePath={`/places/${place.contentId}`}
                 current={profile}
-                extraParams={{ date: activeDate }}
+                extraParams={{ date: activeDate, end: activeEnd }}
               />
             </div>
           </div>
@@ -357,6 +392,7 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
                     place={alt}
                     profile={profile}
                     date={activeDate}
+                    end={activeEnd}
                     footer={
                       <p className="text-xs font-semibold text-teal-700">
                         {alt.distanceKm.toFixed(1)}km · 안전점수 +
@@ -401,7 +437,11 @@ export default async function PlaceDetailPage({ params, searchParams }: Props) {
                 score: alt.safety.score,
                 distanceKm: alt.distanceKm,
               }))}
-              profileQuery={buildQuery({ profile: profileParam(profile), date: activeDate })}
+              profileQuery={buildQuery({
+                profile: profileParam(profile),
+                date: activeDate,
+                end: activeEnd,
+              })}
             />
           </section>
 

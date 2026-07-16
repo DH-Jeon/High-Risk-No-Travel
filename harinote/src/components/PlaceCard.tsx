@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { PlaceWithSafety } from "@/lib/datasource";
 import type { PlaceEnvType } from "@/lib/tour/types";
-import { CONTENT_TYPE_LABEL, ENV_TYPE_LABEL } from "@/lib/tour/types";
+import { ENV_TYPE_LABEL, placeTypeLabel } from "@/lib/tour/types";
 import type { Profile } from "@/lib/safety/types";
 import SafetyScoreBadge from "@/components/SafetyScoreBadge";
 import { buildQuery, profileParam } from "@/components/search-params";
@@ -24,13 +24,15 @@ interface Props {
   profile: Profile;
   /** 선택된 여행 날짜 (YYYY-MM-DD) — 링크에 유지 */
   date?: string;
+  /** 기간 종료 날짜 — 링크에 유지 */
+  end?: string;
   /** 카드 하단 추가 정보 (예: 대체지 추천의 거리·점수 비교) */
   footer?: React.ReactNode;
 }
 
-export default function PlaceCard({ place, profile, date, footer }: Props) {
+export default function PlaceCard({ place, profile, date, end, footer }: Props) {
   const ph = ENV_PLACEHOLDER[place.envType];
-  const href = `/places/${place.contentId}${buildQuery({ profile: profileParam(profile), date })}`;
+  const href = `/places/${place.contentId}${buildQuery({ profile: profileParam(profile), date, end })}`;
 
   return (
     <Link
@@ -57,7 +59,7 @@ export default function PlaceCard({ place, profile, date, footer }: Props) {
         )}
         <div className="absolute left-3 top-3 flex gap-1.5">
           <span className="rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-slate-700 shadow-sm">
-            {CONTENT_TYPE_LABEL[place.contentTypeId]}
+            {placeTypeLabel(place)}
           </span>
           <span className="rounded-full bg-slate-900/70 px-2 py-0.5 text-[11px] font-semibold text-white shadow-sm">
             {ENV_TYPE_LABEL[place.envType]}

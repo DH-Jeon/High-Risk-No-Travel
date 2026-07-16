@@ -14,7 +14,13 @@ import type { Profile, RiskBreakdown, RiskInput } from "@/lib/safety/types";
 import { computeSafetyScore } from "@/lib/safety/score";
 import { getForecastRiskInput, getLiveRiskInput } from "@/lib/risk/live";
 import { seasonalRange, type SeasonalRange } from "@/lib/risk/seasonal";
-import { dayOffsetSeoul, monthOfISO, toKmaDate } from "@/lib/date";
+import {
+  dayOffsetSeoul,
+  eachDayISO,
+  monthOfISO,
+  nightsBetween,
+  toKmaDate,
+} from "@/lib/date";
 import { applyEnvTypeOverrides } from "@/lib/tour/env-overrides";
 import { gangwonPlaces } from "@/fixtures/tour/gangwon";
 
@@ -31,6 +37,8 @@ export interface PlaceQuery {
   q?: string;
   /** 12 관광지, 14 문화시설, 39 음식점 ... */
   contentTypeId?: number;
+  /** TourAPI 소분류 정확 일치 — 카페 필터 등 */
+  cat3?: string;
   /** TourAPI 강원 시군구 코드 (1~18, regions.ts SIGUNGU_SEATS 키) */
   sigunguCode?: number;
 }
@@ -74,6 +82,9 @@ const loadPlacesRaw = async (): Promise<Place[]> => {
 function matches(place: Place, query?: PlaceQuery): boolean {
   if (!query) return true;
   if (query.contentTypeId && place.contentTypeId !== query.contentTypeId) {
+    return false;
+  }
+  if (query.cat3 && place.cat3 !== query.cat3) {
     return false;
   }
   if (query.sigunguCode && place.sigunguCode !== query.sigunguCode) {
@@ -239,6 +250,82 @@ export async function getSpotSafety(
   return computeSafetyScore(await getLiveRiskInput(spot), spot, profile);
 }
 
+// ── 기간 기반 점수 ("이 기간에 가도 될까") ──────────────────────────
+// 대표 점수는 "기간 중 가장 주의가 필요한 날(최악일)" — 여행 전체의 병목을 보여준다.
+// 단일 날짜와 같은 규칙: 대표는 forecast 점수 또는 seasonal 통상일(typical) 점수.
+
+/**
+ * 기간 중 대표 점수(breakdown.score)가 가장 낮은 날 — 동점이면 빠른 날짜.
+ * days는 비어 있지 않아야 한다 (getRangeSafety가 보장). 순수함수 — 테스트용 export.
+ */
+export function pickWorstDay(days: DateSafety[]): DateSafety {
+  return days.reduce((worst, d) =>
+    d.breakdown.score < worst.breakdown.score ? d : worst,
+  );
+}
+
+export interface RangeSafety {
+  startISO: string;
+  endISO: string;
+  /** 숙박 일수 (7/20~7/23 = 3박) */
+  nights: number;
+  /** 일자별 점수 — 계산 불가한 날은 제외 */
+  days: DateSafety[];
+  /** 기간 중 가장 주의가 필요한 날 — 기간 대표 점수의 기준 */
+  worst: DateSafety;
+}
+
+/**
+ * 기간(시작~종료, 양끝 포함)의 일자별 안전 점수 + 최악일.
+ * 전 일자 계산 불가면 null (호출부는 단일/오늘 모드 유지).
+ *
+ * 월 단위 최적화: D+4~ 구간의 seasonal 점수는 (장소, 월, 프로필)에만 의존하므로
+ * 같은 달은 seasonalRange를 1회만 계산해 재사용한다
+ * (기간 상한 14일 → 걸치는 달은 최대 2개).
+ */
+export async function getRangeSafety(
+  place: SafetySpot,
+  profile: Profile,
+  startISO: string,
+  endISO: string,
+): Promise<RangeSafety | null> {
+  const seasonalByMonth = new Map<number, SeasonalRange | null>();
+  const days: DateSafety[] = [];
+
+  for (const dateISO of eachDayISO(startISO, endISO)) {
+    const dayOffset = dayOffsetSeoul(dateISO);
+    if (dayOffset >= 1 && dayOffset <= 3) {
+      // 단기예보 구간 — 예보가 없으면 getDateSafety가 계절 모드로 폴백
+      const ds = await getDateSafety(place, profile, dateISO);
+      if (ds) days.push(ds);
+      continue;
+    }
+    const month = monthOfISO(dateISO);
+    if (!seasonalByMonth.has(month)) {
+      seasonalByMonth.set(month, seasonalRange(place, month, profile));
+    }
+    const r = seasonalByMonth.get(month);
+    if (r) {
+      days.push({
+        mode: "seasonal",
+        dateISO,
+        dayOffset,
+        breakdown: r.typical,
+        seasonal: r,
+      });
+    }
+  }
+
+  if (days.length === 0) return null;
+  return {
+    startISO,
+    endISO,
+    nights: nightsBetween(startISO, endISO),
+    days,
+    worst: pickWorstDay(days),
+  };
+}
+
 /** 날짜별 후보 목록 캐시 — 날짜가 다양할 수 있어 개수를 제한한다 */
 const DATE_CACHE_MAX_KEYS = 12;
 const datePlacesCacheStore = new Map<
@@ -261,6 +348,42 @@ export const getPlacesWithSafetyOnDate = cache(
       base.map(async (p) => {
         const ds = await getDateSafety(p, profile, dateISO);
         return ds ? { ...p, safety: ds.breakdown } : p;
+      }),
+    );
+
+    if (datePlacesCacheStore.size >= DATE_CACHE_MAX_KEYS) {
+      datePlacesCacheStore.clear();
+    }
+    datePlacesCacheStore.set(key, {
+      data,
+      expiresAt: Date.now() + PLACES_CACHE_TTL_MS,
+    });
+    return data;
+  },
+);
+
+/**
+ * 기간 기준 관광지 + 안전점수 목록 — 최악일 대표점수(seasonal은 통상일 breakdown,
+ * 단일 날짜와 동일 규칙)로 목록·정렬·대체지를 구성한다. 기간 점수를 못 만든 곳은 오늘 점수 유지.
+ * 캐시: 기존 날짜별 저장소를 공유하되 키를 `profile:start~end`로 저장 —
+ * 기존 `profile:date` 키(구분자 없음)와 충돌하지 않고, 기간 결과를 1키로만 차지해
+ * 일자별 캐시 N개를 채우는 스래싱(12키 상한)을 피한다.
+ */
+export const getPlacesWithSafetyOnRange = cache(
+  async (
+    profile: Profile,
+    startISO: string,
+    endISO: string,
+  ): Promise<PlaceWithSafety[]> => {
+    const key = `${profile}:${startISO}~${endISO}`;
+    const hit = datePlacesCacheStore.get(key);
+    if (hit && hit.expiresAt > Date.now()) return hit.data;
+
+    const base = await getAllWithSafety(profile);
+    const data = await Promise.all(
+      base.map(async (p) => {
+        const rs = await getRangeSafety(p, profile, startISO, endISO);
+        return rs ? { ...p, safety: rs.worst.breakdown } : p;
       }),
     );
 

@@ -28,6 +28,8 @@ const FIRE_BY_MONTH: Record<number, 1 | 2 | 3 | 4> = {
 /** 계절 모드의 미세먼지 고정값 — 월별 예보 불가, 연평균 "보통" 수준 */
 const SEASONAL_PM25 = 25;
 
+// 한계: 습도 평년값이 없어 체감온도(apparentTempC) 미설정 — 폭염은 건구 최고기온으로 평가
+
 interface SeasonalScenario {
   seatElev: number;
   tmaxMed: number;

@@ -3,11 +3,13 @@ import Link from "next/link";
 import {
   getPlacesWithSafety,
   getPlacesWithSafetyOnDate,
+  getPlacesWithSafetyOnRange,
   matchesPlaceQuery,
 } from "@/lib/datasource";
 import { dayOffsetSeoul, formatKoreanDate } from "@/lib/date";
 import DateChips from "@/components/DateChips";
 import {
+  CAT3_CAFE_LABEL,
   CONTENT_TYPE_LABEL,
   SUPPORTED_CONTENT_TYPE_IDS,
 } from "@/lib/tour/types";
@@ -18,15 +20,17 @@ import SearchBox from "@/components/SearchBox";
 import {
   buildQuery,
   first,
-  parseContentTypeId,
-  parseDate,
+  parseDateRange,
   parseKids,
   parsePage,
   parsePet,
+  parsePlaceType,
   parseProfile,
   parseRiskType,
   parseSigungu,
+  placeTypeToQuery,
   profileParam,
+  type PlaceTypeParam,
   type SearchParamValue,
 } from "@/components/search-params";
 import { isPetFriendly } from "@/lib/tour/pet-friendly";
@@ -40,12 +44,14 @@ export const metadata: Metadata = {
   title: "관광지 검색",
 };
 
-const TYPE_TABS: { label: string; value?: number }[] = [
+const TYPE_TABS: { label: string; value?: PlaceTypeParam }[] = [
   { label: "전체" },
   ...SUPPORTED_CONTENT_TYPE_IDS.map((id) => ({
     label: CONTENT_TYPE_LABEL[id],
-    value: id,
+    value: id as PlaceTypeParam,
   })),
+  // 카페는 음식점(39)의 소분류(cat3) 서브셋 — 음식점 탭에도 포함된 채 별도 탭 제공
+  { label: CAT3_CAFE_LABEL, value: "cafe" },
 ];
 
 interface Props {
@@ -55,13 +61,14 @@ interface Props {
 export default async function PlacesPage({ searchParams }: Props) {
   const sp = await searchParams;
   const q = first(sp.q)?.trim() ?? "";
-  const contentTypeId = parseContentTypeId(sp.type);
+  const placeType = parsePlaceType(sp.type);
   const profile = parseProfile(sp.profile);
   const sigunguCode = parseSigungu(sp.sigungu);
   const sigunguName = sigunguCode ? SIGUNGU_SEATS[sigunguCode].name : undefined;
 
-  // 날짜 모드 (홈 온보딩 "언제 가시나요?" 또는 DateChips) — 그날 기준 점수로 목록 구성
-  const date = parseDate(sp.date);
+  // 날짜·기간 모드 (홈 온보딩 "언제 가시나요?" 또는 DateChips)
+  // 단일: 그날 기준 점수 / 기간: 기간 중 최악일 대표점수로 목록 구성
+  const { start: date, end } = parseDateRange(sp.date, sp.end);
   // 반려동물 동반 필터 (TourAPI detailPetTour2 수집분)
   const pet = parsePet(sp.pet);
   const petParam = pet ? "1" : undefined;
@@ -74,10 +81,11 @@ export default async function PlacesPage({ searchParams }: Props) {
   // 링크들이 공유하는 현재 조건 — 각 링크는 바꿀 파라미터만 덮어쓴다
   const currentParams = {
     q: q || undefined,
-    type: contentTypeId,
+    type: placeType,
     sigungu: sigunguCode,
     profile: profileParam(profile),
     date,
+    end,
     pet: petParam,
     kids: kidsParam,
     rt: riskType,
@@ -87,11 +95,17 @@ export default async function PlacesPage({ searchParams }: Props) {
   // 데이터 순서(사실상 가나다)가 아니라 점수가 목록의 기준이어야 한다.
   // 전량 점수는 10분 메모리 캐시(오늘/날짜별)를 재사용해 부담 없음.
   const all = date
-    ? await getPlacesWithSafetyOnDate(profile, date)
+    ? end
+      ? await getPlacesWithSafetyOnRange(profile, date, end)
+      : await getPlacesWithSafetyOnDate(profile, date)
     : await getPlacesWithSafety(undefined, profile);
   const places = all
     .filter((p) =>
-      matchesPlaceQuery(p, { q: q || undefined, contentTypeId, sigunguCode }),
+      matchesPlaceQuery(p, {
+        q: q || undefined,
+        ...placeTypeToQuery(placeType),
+        sigunguCode,
+      }),
     )
     .filter((p) => !pet || isPetFriendly(p.contentId))
     .filter((p) => !kids || isKidsFriendly(p.contentId))
@@ -111,14 +125,20 @@ export default async function PlacesPage({ searchParams }: Props) {
     <div className="mx-auto max-w-6xl px-4 py-8 lg:grid lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start lg:gap-8">
       <div>
         <div className="max-w-2xl">
-          <SearchBox defaultQuery={q} profile={profile} date={date} compact />
+          <SearchBox
+            defaultQuery={q}
+            profile={profile}
+            date={date}
+            end={end}
+            compact
+          />
         </div>
 
       <div className="mt-5 space-y-3">
         {/* 콘텐츠 종류 탭 (관광지/문화시설/음식점) */}
         <nav aria-label="관광지 종류 필터" className="flex flex-wrap gap-2">
           {TYPE_TABS.map((tab) => {
-            const active = tab.value === contentTypeId;
+            const active = tab.value === placeType;
             const href = `/places${buildQuery({ ...currentParams, type: tab.value })}`;
             return (
               <Link
@@ -171,11 +191,12 @@ export default async function PlacesPage({ searchParams }: Props) {
           )}
         </nav>
 
-        {/* 여행 날짜 전환 */}
+        {/* 여행 날짜·기간 전환 */}
         <DateChips
           basePath="/places"
           current={date}
-          extraParams={{ ...currentParams, date: undefined }}
+          end={end}
+          extraParams={{ ...currentParams, date: undefined, end: undefined }}
         />
 
         {/* 동행 프로필 전환 + 반려동물 필터 */}
@@ -214,8 +235,17 @@ export default async function PlacesPage({ searchParams }: Props) {
         <span>
           {date && (
             <strong className="text-sky-700">
-              {formatKoreanDate(date)} 기준
-              {dayOffsetSeoul(date) >= 4 && " (30년 기후, 통상일 점수)"}
+              {end ? (
+                <>
+                  {formatKoreanDate(date)}~{formatKoreanDate(end)} 기준 (기간 중
+                  가장 주의가 필요한 날 점수)
+                </>
+              ) : (
+                <>
+                  {formatKoreanDate(date)} 기준
+                  {dayOffsetSeoul(date) >= 4 && " (30년 기후, 통상일 점수)"}
+                </>
+              )}
               {" · "}
             </strong>
           )}
@@ -282,6 +312,7 @@ export default async function PlacesPage({ searchParams }: Props) {
                 place={place}
                 profile={profile}
                 date={date}
+                end={end}
               />
             ))}
           </div>

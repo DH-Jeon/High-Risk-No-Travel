@@ -1,9 +1,15 @@
 /** URL 쿼리 파라미터 파싱 유틸 — UI 전용 */
 import { PROFILE_LABEL, type Profile } from "@/lib/safety/types";
-import { dayOffsetSeoul, isValidISODate } from "@/lib/date";
+import {
+  addDaysISO,
+  dayOffsetSeoul,
+  isValidISODate,
+  nightsBetween,
+} from "@/lib/date";
 import { RISK_TYPE_META, type RiskTypeKey } from "@/lib/tour/risk-types";
 import { SIGUNGU_SEATS } from "@/lib/risk/regions";
 import {
+  CAT3_CAFE,
   SUPPORTED_CONTENT_TYPE_IDS,
   type ContentTypeId,
 } from "@/lib/tour/types";
@@ -20,13 +26,29 @@ export function parseProfile(v: SearchParamValue): Profile {
   return s && s in PROFILE_LABEL ? (s as Profile) : "default";
 }
 
-export function parseContentTypeId(
+/** 유형 탭 파라미터 — 대분류(contentTypeId) 또는 "cafe" 소분류 슬러그 */
+export type PlaceTypeParam = ContentTypeId | "cafe";
+
+/** 유형 파라미터 파싱 — "cafe" 슬러그 또는 SUPPORTED 화이트리스트 숫자만 허용 */
+export function parsePlaceType(
   v: SearchParamValue,
-): ContentTypeId | undefined {
-  const n = Number(first(v));
+): PlaceTypeParam | undefined {
+  const s = first(v);
+  if (s === "cafe") return "cafe";
+  const n = Number(s);
   return (SUPPORTED_CONTENT_TYPE_IDS as readonly number[]).includes(n)
     ? (n as ContentTypeId)
     : undefined;
+}
+
+/** 유형 파라미터 → PlaceQuery 필드 — "cafe"는 음식점(39) + cat3 소분류 조합 */
+export function placeTypeToQuery(t?: PlaceTypeParam): {
+  contentTypeId?: ContentTypeId;
+  cat3?: string;
+} {
+  if (t === undefined) return {};
+  if (t === "cafe") return { contentTypeId: 39, cat3: CAT3_CAFE };
+  return { contentTypeId: t };
 }
 
 /** 강원 시군구 코드 파싱 — SIGUNGU_SEATS에 있는 코드(1~18)만 허용 */
@@ -97,4 +119,32 @@ export function parseDate(v: SearchParamValue): string | undefined {
   if (!s || !isValidISODate(s)) return undefined;
   const off = dayOffsetSeoul(s);
   return off >= 1 && off <= 366 ? s : undefined;
+}
+
+/**
+ * 최대 선택 기간(일). 국내여행 평균 체류 2~3일(문체부 국민여행조사)을
+ * 넉넉히 커버하는 2주 — 기간 점수는 일자별 계산 N회라 성능·달력 범위밴드
+ * 가독성 상한. 설계값.
+ */
+export const MAX_RANGE_DAYS = 14;
+
+/**
+ * 기간 파라미터 파싱 (?date=시작&end=종료).
+ * - start가 없으면 end는 무시 (= 오늘 모드, 기존과 동일)
+ * - end가 무효이거나 start 이하이면 단일 날짜 모드 ({start}만)
+ * - 기간이 MAX_RANGE_DAYS를 넘으면 end를 start+13일로 잘라낸다
+ *   (시작일 포함 14일 — URL 수기 조작에도 상한을 보장)
+ */
+export function parseDateRange(
+  dateV: SearchParamValue,
+  endV: SearchParamValue,
+): { start?: string; end?: string } {
+  const start = parseDate(dateV);
+  if (!start) return {};
+  const end = parseDate(endV);
+  if (!end || end <= start) return { start };
+  if (nightsBetween(start, end) + 1 > MAX_RANGE_DAYS) {
+    return { start, end: addDaysISO(start, MAX_RANGE_DAYS - 1) };
+  }
+  return { start, end };
 }

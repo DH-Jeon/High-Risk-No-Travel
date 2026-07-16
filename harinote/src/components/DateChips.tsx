@@ -1,30 +1,31 @@
 import Link from "next/link";
 import { buildQuery } from "@/components/search-params";
-import { formatKoreanDate, todayISOSeoul } from "@/lib/date";
+import { addDaysISO, formatKoreanDate, todayISOSeoul } from "@/lib/date";
 import LinkLabel from "@/components/LinkLabel";
-import DatePickerNav from "@/components/DatePickerNav";
+import DateRangePicker from "@/components/DateRangePicker";
 
 interface Props {
   /** 날짜 쿼리를 바꿔 이동할 기준 경로 (예: /places/126273) */
   basePath: string;
-  /** 현재 선택 날짜 (YYYY-MM-DD, 없으면 오늘) */
+  /** 현재 선택 시작 날짜 (YYYY-MM-DD, 없으면 오늘) */
   current?: string;
-  /** date 외에 유지할 쿼리 파라미터 (profile 등) */
+  /** 현재 선택 종료 날짜 — 있으면 기간 모드 */
+  end?: string;
+  /** date/end 외에 유지할 쿼리 파라미터 (profile 등) */
   extraParams?: Record<string, string | number | undefined>;
 }
 
-/** 오늘(KST) 기준 +days일의 YYYY-MM-DD */
-function isoAfter(days: number): string {
-  return new Date(Date.parse(`${todayISOSeoul()}T00:00:00Z`) + days * 86_400_000)
-    .toISOString()
-    .slice(0, 10);
-}
-
 /**
- * 여행 날짜 선택 — [오늘] 리셋 + 달력(고르는 즉시 반영).
- * D+1~3은 단기예보, 그 이후는 30년 기후 계절 모드로 계산된다.
+ * 여행 날짜·기간 선택 — [오늘] 리셋 + 에어비앤비식 범위 달력.
+ * 단일 날짜: D+1~3 단기예보, 이후 30년 기후 계절 모드.
+ * 기간: 일자별 점수 중 가장 주의가 필요한 날(최악일)이 대표 점수.
  */
-export default function DateChips({ basePath, current, extraParams = {} }: Props) {
+export default function DateChips({
+  basePath,
+  current,
+  end,
+  extraParams = {},
+}: Props) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Link
@@ -39,17 +40,18 @@ export default function DateChips({ basePath, current, extraParams = {} }: Props
         <LinkLabel>오늘</LinkLabel>
       </Link>
 
-      <DatePickerNav
+      <DateRangePicker
         basePath={basePath}
-        current={current}
+        current={{ start: current, end }}
         extraParams={extraParams}
         todayISO={todayISOSeoul()}
-        maxISO={isoAfter(366)}
+        maxISO={addDaysISO(todayISOSeoul(), 366)}
       />
 
       {current && (
         <span className="text-xs font-semibold text-sky-700">
-          {formatKoreanDate(current)} 기준
+          {formatKoreanDate(current)}
+          {end && ` ~ ${formatKoreanDate(end)}`} 기준
         </span>
       )}
     </div>

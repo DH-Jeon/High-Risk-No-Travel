@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { apparentTempSummerC } from "@/lib/risk/apparent-temp";
 import { getLiveRiskInput, gridPointFor, hasLiveRiskKeys } from "@/lib/risk/live";
 import { nearestHospitalKm } from "@/lib/risk/medical";
 import { mockRiskInputFor } from "@/fixtures/safety/risk-inputs";
@@ -92,5 +93,76 @@ describe("getLiveRiskInput — 전체 실패 폴백", () => {
     expect(second).toEqual(expected({ ...place, contentId: 226001 }));
 
     expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("getLiveRiskInput — 체감온도(apparentTempC) 반영", () => {
+  beforeEach(() => {
+    vi.stubEnv("KMA_API_KEY", "test-kma-key");
+    vi.stubEnv("AIRKOREA_API_KEY", "test-airkorea-key");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  /** 오늘 KST 날짜(YYYYMMDD) — summarizeDaily의 targetDate와 맞춘다 */
+  function kstToday(): string {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" })
+      .format(new Date())
+      .replaceAll("-", "");
+  }
+
+  /** 기상청 호출만 성공(JSON), 나머지 소스(AirKorea·산불)는 실패하도록 fetch 스텁 */
+  function stubFetchKmaOnly(items: Array<Record<string, string>>) {
+    const body = JSON.stringify({
+      response: {
+        header: { resultCode: "00" },
+        body: { items: { item: items } },
+      },
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: unknown) =>
+        String(url).includes("VilageFcstInfoService")
+          ? Promise.resolve({ ok: true, text: () => Promise.resolve(body) })
+          : Promise.reject(new Error("other source down")),
+      ),
+    );
+  }
+
+  const kmaItem = (category: string, fcstValue: string, fcstTime = "1500") => ({
+    category,
+    fcstDate: kstToday(),
+    fcstTime,
+    fcstValue,
+  });
+
+  it("날씨 응답에 TMP·REH 쌍이 있으면 input.apparentTempC에 반영된다", async () => {
+    stubFetchKmaOnly([
+      kmaItem("TMP", "31"),
+      kmaItem("REH", "80"),
+      kmaItem("POP", "10"),
+      kmaItem("WSD", "3"),
+    ]);
+    // 강릉(sigunguCode 1) — 다른 테스트와 격자가 달라 kma 모듈 캐시가 섞이지 않는다
+    const input = await getLiveRiskInput({ ...place, sigunguCode: 1 });
+    expect(input.tempC).toBe(31);
+    expect(input.apparentTempC).toBe(apparentTempSummerC(31, 80));
+  });
+
+  it("날씨 응답에 REH가 없으면 input에 apparentTempC가 남지 않는다", async () => {
+    stubFetchKmaOnly([
+      kmaItem("TMP", "31"),
+      kmaItem("POP", "10"),
+      kmaItem("WSD", "3"),
+    ]);
+    // 동해(sigunguCode 3) — 위 테스트와 격자 분리
+    const input = await getLiveRiskInput({ ...place, sigunguCode: 3 });
+    expect(input.tempC).toBe(31);
+    expect(input.apparentTempC).toBeUndefined();
+    expect("apparentTempC" in input).toBe(false);
   });
 });

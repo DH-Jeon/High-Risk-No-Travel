@@ -9,6 +9,7 @@ import type { PlaceWithSafety } from "@/lib/datasource";
 import type { Alternative } from "@/lib/reco/alternatives";
 import type { RiskBreakdown, RiskLevel } from "@/lib/safety/types";
 import { buildHalfDayCourse } from "@/lib/course/half-day";
+import { CAT3_CAFE } from "@/lib/tour/types";
 
 function gradeFor(score: number): RiskLevel {
   if (score >= 70) return "low";
@@ -134,6 +135,18 @@ describe("buildHalfDayCourse — 점심 스톱", () => {
     const course = buildHalfDayCourse(target, [], [far, near]);
     const lunch = course!.stops.find((s) => s.slot === "lunch");
     expect(lunch!.place.contentId).toBe(near.contentId);
+  });
+
+  it("최고점 음식점이 카페(A05020900)면 제외하고 차순위 일반 음식점 선택", () => {
+    const cafe = makeRestaurant({
+      lat: 37.88,
+      cat3: CAT3_CAFE,
+      safety: makeSafety(95),
+    });
+    const restaurant = makeRestaurant({ lat: 37.88, safety: makeSafety(80) });
+    const course = buildHalfDayCourse(target, [], [cafe, restaurant]);
+    const lunch = course!.stops.find((s) => s.slot === "lunch");
+    expect(lunch!.place.contentId).toBe(restaurant.contentId);
   });
 
   it("10km 초과 음식점은 제외 — 점심 슬롯 생략 후 2스톱 코스", () => {
