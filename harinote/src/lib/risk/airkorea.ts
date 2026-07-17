@@ -107,7 +107,10 @@ export async function fetchGangwonStationPm25Raw(): Promise<StationPm25Map> {
     pageNo: "1",
   });
 
-  const res = await fetch(`${BASE_URL}?${params.toString()}`);
+  // 타임아웃 — kma.ts와 동일한 이유 (무응답 API가 렌더를 붙잡지 않도록)
+  const res = await fetch(`${BASE_URL}?${params.toString()}`, {
+    signal: AbortSignal.timeout(5000),
+  });
   const text = await res.text();
 
   if (text.trimStart().startsWith("<")) {

@@ -233,6 +233,24 @@ export async function fetchKmaDailyWeatherRaw(
   now: Date = new Date(),
   targetDate?: string,
 ): Promise<KmaDailyWeather> {
+  const items = await fetchKmaGridItemsRaw(nx, ny, now);
+  return summarizeDaily(
+    items,
+    targetDate ?? kstParts(now).date,
+    targetDate === undefined,
+  );
+}
+
+/**
+ * 격자 1회 fetch + 파싱 → 예보 item 원본.
+ * 응답에는 발표별 전체 기간(오늘~D+3)이 모두 들어 있으므로 HTTP 호출은
+ * 격자당 1회면 충분하다 — 날짜별 요약(summarizeDaily)은 로컬 계산.
+ */
+async function fetchKmaGridItemsRaw(
+  nx: number,
+  ny: number,
+  now: Date,
+): Promise<KmaItem[]> {
   const key = requireApiKey();
   const { baseDate, baseTime } = pickBaseDateTime(now);
   const params = new URLSearchParams({
@@ -248,7 +266,11 @@ export async function fetchKmaDailyWeatherRaw(
     pageNo: "1",
   });
 
-  const res = await fetch(`${BASE_URL}?${params.toString()}`);
+  // 타임아웃 — 공공데이터포털 무응답 시 페이지 렌더가 무한정 끌려가지 않도록.
+  // 초과 시 reject → 호출부의 mock 폴백·failTtl 재시도 경로를 그대로 탄다.
+  const res = await fetch(`${BASE_URL}?${params.toString()}`, {
+    signal: AbortSignal.timeout(5000),
+  });
   const text = await res.text();
 
   // 키 오류 등은 dataType=JSON을 무시하고 XML(OpenAPI_ServiceResponse)로 온다
@@ -290,25 +312,28 @@ export async function fetchKmaDailyWeatherRaw(
     );
   }
 
-  const items = parsed.data.response.body?.items?.item ?? [];
-  return summarizeDaily(
-    items,
-    targetDate ?? kstParts(now).date,
-    targetDate === undefined,
-  );
+  return parsed.data.response.body?.items?.item ?? [];
 }
 
-/** 격자·날짜별 1시간 캐시 (실패는 5분 후 재시도) */
-const cache = createTtlCache<KmaDailyWeather>(60 * 60 * 1000, 5 * 60 * 1000);
+/**
+ * 격자별 예보 item 1시간 캐시 (실패는 5분 후 재시도).
+ * 날짜가 아니라 격자 단위로 캐시한다 — 기간(D+1~3) 조회가 같은 응답을
+ * 날짜 수만큼 중복 다운로드하던 문제 제거 (105격자 × 4날짜 → 105회).
+ */
+const cache = createTtlCache<KmaItem[]>(60 * 60 * 1000, 5 * 60 * 1000);
 
 /** 격자(nx, ny)의 날씨 요약 — targetDate(YYYYMMDD) 미지정 시 오늘. 1시간 메모리 캐시 */
-export function fetchKmaDailyWeather(
+export async function fetchKmaDailyWeather(
   nx: number,
   ny: number,
   targetDate?: string,
 ): Promise<KmaDailyWeather> {
-  const dateKey = targetDate ?? "today";
-  return cache.get(`${nx},${ny},${dateKey}`, () =>
-    fetchKmaDailyWeatherRaw(nx, ny, new Date(), targetDate),
+  const items = await cache.get(`${nx},${ny}`, () =>
+    fetchKmaGridItemsRaw(nx, ny, new Date()),
+  );
+  return summarizeDaily(
+    items,
+    targetDate ?? kstParts(new Date()).date,
+    targetDate === undefined,
   );
 }
