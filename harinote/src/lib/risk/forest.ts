@@ -120,7 +120,10 @@ export async function fetchGangwonForestPointsRaw(): Promise<ForestPointRow[]> {
     excludeForecast: "1", // 72시간 예보 행 제외, 실황만
   });
 
-  const res = await fetch(`${BASE_URL}?${params.toString()}`);
+  // 타임아웃 — kma.ts와 동일한 이유 (무응답 API가 렌더를 붙잡지 않도록)
+  const res = await fetch(`${BASE_URL}?${params.toString()}`, {
+    signal: AbortSignal.timeout(5000),
+  });
   const text = await res.text();
 
   // 신형 게이트웨이는 인증 오류를 상태코드 + plain text로 준다 (401/403)
