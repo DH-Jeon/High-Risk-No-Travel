@@ -165,7 +165,7 @@ export default async function PlacesPage({ searchParams }: Props) {
           })}
         </nav>
 
-        {/* 동행 프로필 전환 + 반려동물/유아 필터 (날짜·이동수단은 홈에서 선택) */}
+        {/* 동행 프로필 전환 + 반려동물/유아 필터 + 이동수단 */}
         <div className="flex flex-wrap items-center gap-2">
           <ProfileChips
             basePath="/places"
@@ -194,6 +194,35 @@ export default async function PlacesPage({ searchParams }: Props) {
           >
             👶 유아 동반 시설
           </Link>
+        </div>
+
+        {/* 이동수단 — 쿠키(PrefsPersist)로 기억되어 다음 방문에도 유지 */}
+        <div className="flex flex-wrap items-center gap-2">
+          {(
+            [
+              { key: "transit", label: "🚌 대중교통" },
+              { key: "car", label: "🚗 자차" },
+            ] as const
+          ).map((t) => (
+            <Link
+              key={t.key}
+              href={`/places${buildQuery({
+                ...currentParams,
+                tr: t.key === "transit" ? undefined : t.key,
+              })}`}
+              aria-pressed={transport === t.key}
+              className={`inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+                transport === t.key
+                  ? "bg-slate-700 text-white shadow-sm"
+                  : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100"
+              }`}
+            >
+              {t.label}
+            </Link>
+          ))}
+          <span className="self-center text-xs text-slate-400">
+            자차는 대체지·코스를 더 넓게 (30→50km) 추천해요
+          </span>
         </div>
       </div>
 

@@ -12,13 +12,13 @@ interface Props {
 }
 
 /** 현재 프로필에 아이/부모님이 포함되는지 */
-function has(current: Profile, who: "kids" | "seniors"): boolean {
+export function has(current: Profile, who: "kids" | "seniors"): boolean {
   if (who === "kids") return current === "with_kids" || current === "with_kids_seniors";
   return current === "with_seniors" || current === "with_kids_seniors";
 }
 
 /** 아이/부모님 토글 결과 → 새 Profile 값 */
-function toggled(current: Profile, who: "kids" | "seniors"): Profile {
+export function toggled(current: Profile, who: "kids" | "seniors"): Profile {
   const kids = has(current, "kids") !== (who === "kids");
   const seniors = has(current, "seniors") !== (who === "seniors");
   if (kids && seniors) return "with_kids_seniors";
