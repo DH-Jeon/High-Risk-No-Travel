@@ -38,9 +38,11 @@ function round1(n: number): number {
 interface Props {
   course: ThemedCourseDto;
   profile: Profile;
+  /** 계획에 담은 뒤 호출 (팝업이 모달을 닫는 용도) */
+  onAdded?: () => void;
 }
 
-export default function CourseCard({ course, profile }: Props) {
+export default function CourseCard({ course, profile, onAdded }: Props) {
   const meta = COURSE_THEME_META[course.theme];
   const query = buildQuery({ profile: profileParam(profile) });
 
@@ -72,15 +74,17 @@ export default function CourseCard({ course, profile }: Props) {
     );
   };
 
-  // 현재 선택 조합을 내 여행 계획에 일괄 담기
-  const { add } = useTravelPlan();
+  // 현재 선택 조합을 내 여행 계획의 활성 일차에 일괄 담기
+  const { addMany, activeDay } = useTravelPlan();
   const [added, setAdded] = useState(false);
   const addCourseToPlan = () => {
-    for (const p of chosen) {
-      add({ contentId: p.contentId, title: p.title, lat: p.lat, lng: p.lng, score: p.score });
-    }
+    addMany(
+      chosen.map((p) => ({ contentId: p.contentId, title: p.title, lat: p.lat, lng: p.lng, score: p.score })),
+      activeDay,
+    );
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
+    onAdded?.();
   };
 
   return (
