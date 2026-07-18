@@ -6,6 +6,7 @@
  * 통째로 담는다. (sigungu, profile) 조합당 1회만 호출하고 테마 전환은 로컬 필터.
  */
 import { useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import CourseCard from "@/components/CourseCard";
 import { has, toggled } from "@/components/ProfileChips";
 import { recommendCourses } from "@/lib/course/recommend-action";
@@ -76,7 +77,9 @@ export default function CourseRecommendModal() {
         🤖 AI 코스 추천
       </button>
 
-      {open && (
+      {/* sticky 패널 안은 스태킹 컨텍스트라 z-50이 갇힌다 — body로 포털 */}
+      {open &&
+        createPortal(
         <div
           role="dialog"
           aria-modal="true"
@@ -269,7 +272,8 @@ export default function CourseRecommendModal() {
               </section>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
