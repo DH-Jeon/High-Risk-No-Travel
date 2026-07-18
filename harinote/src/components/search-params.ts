@@ -13,8 +13,6 @@ import {
   SUPPORTED_CONTENT_TYPE_IDS,
   type ContentTypeId,
 } from "@/lib/tour/types";
-import { COURSE_THEMES, type CourseTheme } from "@/lib/course/themed";
-
 export type SearchParamValue = string | string[] | undefined;
 
 export function first(v: SearchParamValue): string | undefined {
@@ -55,16 +53,6 @@ export function placeTypeToQuery(t?: PlaceTypeParam): {
 export function parseSigungu(v: SearchParamValue): number | undefined {
   const n = Number(first(v));
   return n in SIGUNGU_SEATS ? n : undefined;
-}
-
-/** 코스 테마 파싱 — COURSE_THEMES에 있는 값만 허용, 그 외는 undefined(전체) */
-export function parseCourseTheme(
-  v: SearchParamValue,
-): CourseTheme | undefined {
-  const s = first(v);
-  return s !== undefined && (COURSE_THEMES as readonly string[]).includes(s)
-    ? (s as CourseTheme)
-    : undefined;
 }
 
 /** 페이지 번호 파싱 — 1 이상의 정수만 허용, 잘못된 값은 1 */

@@ -8,7 +8,7 @@ describe("activeTab", () => {
     ["/places", "places"],
     ["/places/12345", "places"],
     ["/places/12345/report", "places"],
-    ["/courses", "courses"],
+    ["/plans", "plans"],
     ["/unknown", null],
   ] as const)("%s → %s", (pathname, expected) => {
     expect(activeTab(pathname)).toBe(expected);
