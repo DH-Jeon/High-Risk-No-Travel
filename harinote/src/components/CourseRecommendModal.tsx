@@ -5,7 +5,7 @@
  * 서버 액션(recommendCourses)으로 코스를 만들고, 코스를 현재 활성 일차에
  * 통째로 담는다. (sigungu, profile) 조합당 1회만 호출하고 테마 전환은 로컬 필터.
  */
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import CourseCard from "@/components/CourseCard";
 import { has, toggled } from "@/components/ProfileChips";
@@ -26,9 +26,18 @@ const PROFILE_CHIPS: { who: "kids" | "seniors"; icon: string; label: string }[] 
   { who: "seniors", icon: "👵", label: "부모님 동반" },
 ];
 
-export default function CourseRecommendModal() {
-  const [open, setOpen] = useState(false);
-  const [sigungu, setSigungu] = useState<number | undefined>();
+interface Props {
+  /** 홈 지도 "AI 코스 추천 받기" 진입(?course=1) — SSR에서 파싱해 내려주면 팝업이 열린 채 시작 */
+  autoOpen?: boolean;
+  /** autoOpen 시 미리 선택할 시군 코드 (?sigungu=N) */
+  initialSigungu?: number;
+}
+
+export default function CourseRecommendModal({ autoOpen = false, initialSigungu }: Props) {
+  const [open, setOpen] = useState(autoOpen);
+  const [sigungu, setSigungu] = useState<number | undefined>(
+    autoOpen ? initialSigungu : undefined,
+  );
   const [theme, setTheme] = useState<CourseTheme | undefined>();
   const [profile, setProfile] = useState<Profile>("default");
   const [result, setResult] = useState<{ key: string; data: CourseResult } | null>(null);
@@ -54,6 +63,22 @@ export default function CourseRecommendModal() {
     setSigungu(code);
     load(code, profile);
   };
+
+  // autoOpen + 시군 미리 선택으로 시작한 경우 첫 코스 로드 (1회)
+  const initLoaded = useRef(false);
+  useEffect(() => {
+    if (initLoaded.current) return;
+    initLoaded.current = true;
+    if (!autoOpen || initialSigungu === undefined) return;
+    startTransition(async () => {
+      try {
+        const data = await recommendCourses(initialSigungu, "default");
+        setResult({ key: `${initialSigungu}:default`, data });
+      } catch {
+        setFailed(true);
+      }
+    });
+  }, [autoOpen, initialSigungu]);
 
   const toggleProfile = (who: "kids" | "seniors") => {
     const next = toggled(profile, who);

@@ -21,7 +21,14 @@ const NIGHTS_OPTIONS = [
  * 내 여행 계획 패널 — 카드 드롭으로 담고, 일차별 탭으로 나눠 순서 정렬,
  * 일차마다 직선 루트+총거리. N박이면 1일차/2일차 탭. localStorage 영속.
  */
-export default function TravelPlannerPanel({ compact = false }: { compact?: boolean }) {
+interface Props {
+  compact?: boolean;
+  /** ?course=1 진입 시 AI 코스 추천 팝업을 열린 채 시작 (데스크톱 패널에만 전달) */
+  courseAutoOpen?: boolean;
+  courseSigungu?: number;
+}
+
+export default function TravelPlannerPanel({ compact = false, courseAutoOpen, courseSigungu }: Props) {
   const { plan, hydrated, add, remove, move, moveToDay, setActiveDay, setTrip, clear, count, days, activeDay, byDay } =
     useTravelPlan();
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -132,7 +139,7 @@ export default function TravelPlannerPanel({ compact = false }: { compact?: bool
 
       {/* AI 코스 추천 — 팝업에서 테마·시군·프로필 선택 후 활성 일차에 담기 */}
       <div className="border-b border-slate-100 px-4 py-2.5">
-        <CourseRecommendModal />
+        <CourseRecommendModal autoOpen={courseAutoOpen} initialSigungu={courseSigungu} />
       </div>
 
       {/* 여행 일수·출발일 설정 — localStorage 계획에만 반영 (일차 탭·날짜 라벨) */}
