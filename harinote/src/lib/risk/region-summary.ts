@@ -74,7 +74,7 @@ export function summarizeRegions(places: PlaceWithSafety[]): RegionSummary[] {
 
 /**
  * 전체 관광지의 점수를 시군별로 요약 — 서버 전용.
- * profile·dateISO를 주면 그 조건의 점수로 지도가 반응한다 (홈 온보딩).
+ * profile·dateISO를 주면 그 조건의 점수로 지도가 반응한다 (홈 날짜 스테퍼).
  * endISO까지 주면 기간 모드 — 기간 중 최악일 대표점수 기준.
  */
 export async function getRegionSummaries(

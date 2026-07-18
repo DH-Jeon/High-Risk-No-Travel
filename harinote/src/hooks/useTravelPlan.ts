@@ -3,6 +3,7 @@
 import { useCallback, useSyncExternalStore } from "react";
 import {
   addItem,
+  addItems,
   EMPTY_PLAN,
   isValidPlan,
   itemsByDay,
@@ -74,6 +75,8 @@ export function useTravelPlan() {
   );
 
   const add = useCallback((item: PlanItem, day = 1) => write(addItem(readPlan(), item, day)), []);
+  const addMany = useCallback((items: PlanItem[], day = 1) => write(addItems(readPlan(), items, day)), []);
+  const replace = useCallback((next: TravelPlan) => write(next), []);
   const remove = useCallback((contentId: number) => write(removeItem(readPlan(), contentId)), []);
   const move = useCallback((from: number, to: number) => write(reorder(readPlan(), from, to)), []);
   const moveToDay = useCallback((contentId: number, day: number) => write(setItemDay(readPlan(), contentId, day)), []);
@@ -89,6 +92,8 @@ export function useTravelPlan() {
     plan,
     hydrated,
     add,
+    addMany,
+    replace,
     remove,
     move,
     moveToDay,

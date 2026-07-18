@@ -4,12 +4,12 @@ import FestivalSection from "@/components/FestivalSection";
 import { hasLiveRiskKeys } from "@/lib/risk/live";
 import { hasForestKey } from "@/lib/risk/forest";
 import { medicalDataSource } from "@/lib/risk/medical";
-import { formatKoreanDate } from "@/lib/date";
+import { addDaysISO, formatKoreanDate, todayISOSeoul } from "@/lib/date";
 import SearchBox from "@/components/SearchBox";
-import TripSetup from "@/components/TripSetup";
+import DateStepper from "@/components/DateStepper";
 import RegionDashboard from "@/components/RegionDashboard";
 import {
-  parseDateRange,
+  parseDate,
   parseProfile,
   parseTransport,
   profileParam,
@@ -31,16 +31,15 @@ export default async function Home({ searchParams }: Props) {
       : ((await savedProfile()) ?? "default");
   const transport: Transport =
     parseTransport(sp.tr) ?? (await savedTransport()) ?? "transit";
-  // 기간 모드(?date=&end=) — end가 없으면 기존 단일 날짜와 동일 동작
-  const { start: date, end } = parseDateRange(sp.date, sp.end);
+  // 단일 날짜 모드 — 단기예보 실측 범위(오늘~D+3)로 클램프 (getDateSafety 실예보 분기와 일치)
+  const todayISO = todayISOSeoul();
+  const maxISO = addDaysISO(todayISO, 3);
+  const parsed = parseDate(sp.date);
+  const date = parsed && parsed > maxISO ? maxISO : parsed;
 
   // 선택한 조건(언제·누구와)이 지도·시군 요약에 바로 반영된다
-  const regions = await getRegionSummaries(profile, date, end);
-  const dateLabel = date
-    ? end
-      ? `${formatKoreanDate(date)} ~ ${formatKoreanDate(end)}`
-      : formatKoreanDate(date)
-    : "오늘";
+  const regions = await getRegionSummaries(profile, date);
+  const dateLabel = date ? formatKoreanDate(date) : "오늘";
 
   return (
     <div className="bg-gradient-to-b from-teal-50/60 to-slate-50">
@@ -56,13 +55,18 @@ export default async function Home({ searchParams }: Props) {
           </p>
           {/* 모바일 검색 (md+는 네비바 전역 검색 사용) */}
           <div className="mt-4 md:hidden">
-            <SearchBox profile={profile} date={date} end={end} />
+            <SearchBox profile={profile} date={date} />
           </div>
 
           <PrefsPersist profile={profile} transport={transport} />
 
-          {/* 여행 기간·출발일·이동수단 선택 → 계획 저장 + 안전지도 갱신 */}
-          <TripSetup transport={transport} />
+          {/* 날짜 스테퍼 — 원하는 날(오늘~D+3)의 안전지수를 지도에서 바로 확인 */}
+          <DateStepper
+            current={date}
+            todayISO={todayISO}
+            maxISO={maxISO}
+            extraParams={{ profile: profileParam(profile) }}
+          />
         </div>
 
         {/* 안전 지도 대시보드 — 선택 조건 기준 */}
@@ -70,13 +74,13 @@ export default async function Home({ searchParams }: Props) {
           <RegionDashboard
             regions={regions}
             dateLabel={dateLabel}
-            extraQuery={{ profile: profileParam(profile), date, end }}
+            extraQuery={{ profile: profileParam(profile), date }}
           />
         </section>
 
         {/* 축제·행사 — TourAPI 실시간, 등록 없으면 숨김 (스트리밍) */}
         <Suspense fallback={null}>
-          <FestivalSection dateISO={date} endISO={end} profile={profile} />
+          <FestivalSection dateISO={date} profile={profile} />
         </Suspense>
 
         {/* 출처·참고 */}
