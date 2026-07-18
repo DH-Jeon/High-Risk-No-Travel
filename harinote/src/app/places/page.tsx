@@ -68,7 +68,7 @@ export default async function PlacesPage({ searchParams }: Props) {
   const sigunguCode = parseSigungu(sp.sigungu);
   const sigunguName = sigunguCode ? SIGUNGU_SEATS[sigunguCode].name : undefined;
 
-  // 날짜·기간 모드 (홈 온보딩 "언제 가시나요?" 또는 DateChips)
+  // 날짜·기간 모드 (DateChips 또는 홈 날짜 스테퍼에서 전달)
   // 단일: 그날 기준 점수 / 기간: 기간 중 최악일 대표점수로 목록 구성
   const { start: date, end } = parseDateRange(sp.date, sp.end);
   // 반려동물 동반 필터 (TourAPI detailPetTour2 수집분)
@@ -207,8 +207,9 @@ export default async function PlacesPage({ searchParams }: Props) {
             <Link
               key={t.key}
               href={`/places${buildQuery({
+                // tr을 항상 명시 — 생략하면 쿠키(예: car)가 폴백돼 대중교통 전환이 안 됨
                 ...currentParams,
-                tr: t.key === "transit" ? undefined : t.key,
+                tr: t.key,
               })}`}
               aria-pressed={transport === t.key}
               className={`inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
