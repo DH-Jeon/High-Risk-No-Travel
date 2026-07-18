@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   addItem,
+  addItems,
   dateOfDay,
   EMPTY_PLAN,
   isValidPlan,
@@ -27,6 +28,21 @@ describe("addItem", () => {
   it("중복 contentId는 무시 (같은 참조 반환)", () => {
     const p = addItem(addItem(EMPTY_PLAN, A), A);
     expect(p.items).toHaveLength(1);
+  });
+});
+
+describe("addItems", () => {
+  it("순서대로 추가", () => {
+    const p = addItems(EMPTY_PLAN, [A, B, C]);
+    expect(p.items.map((i) => i.contentId)).toEqual([1, 2, 3]);
+  });
+  it("이미 담긴 contentId는 스킵", () => {
+    const p = addItems(addItem(EMPTY_PLAN, B), [A, B, C]);
+    expect(p.items.map((i) => i.contentId)).toEqual([2, 1, 3]);
+  });
+  it("지정 일차로 담김", () => {
+    const p = addItems(setTrip(EMPTY_PLAN, 1, "2026-08-01"), [A, C], 2);
+    expect(itemsByDay(p)[1].map((i) => i.contentId)).toEqual([1, 3]);
   });
 });
 

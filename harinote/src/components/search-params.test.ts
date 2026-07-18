@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   MAX_RANGE_DAYS,
-  parseCourseTheme,
   parseDateRange,
   parsePlaceType,
   parseSigungu,
@@ -132,23 +131,5 @@ describe("parseDateRange", () => {
       start: isoAfter(366),
     });
     expect(parseDateRange(isoAfter(367), isoAfter(370))).toEqual({});
-  });
-});
-
-describe("parseCourseTheme", () => {
-  it("COURSE_THEMES에 있는 값은 그대로 반환", () => {
-    expect(parseCourseTheme("nature")).toBe("nature");
-    expect(parseCourseTheme("water")).toBe("water");
-    expect(parseCourseTheme("culture")).toBe("culture");
-  });
-
-  it("없는 값·빈 값은 undefined(전체)", () => {
-    expect(parseCourseTheme("food")).toBeUndefined();
-    expect(parseCourseTheme("")).toBeUndefined();
-    expect(parseCourseTheme(undefined)).toBeUndefined();
-  });
-
-  it("배열이면 첫 값 기준", () => {
-    expect(parseCourseTheme(["water", "nature"])).toBe("water");
   });
 });

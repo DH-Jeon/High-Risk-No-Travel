@@ -67,8 +67,10 @@ export default async function PlacesPage({ searchParams }: Props) {
   const profile = parseProfile(sp.profile);
   const sigunguCode = parseSigungu(sp.sigungu);
   const sigunguName = sigunguCode ? SIGUNGU_SEATS[sigunguCode].name : undefined;
+  // 홈 지도 "AI 코스 추천 받기" 진입 — 플래너의 코스 추천 팝업을 열린 채 시작
+  const courseOpen = first(sp.course) === "1";
 
-  // 날짜·기간 모드 (홈 온보딩 "언제 가시나요?" 또는 DateChips)
+  // 날짜·기간 모드 (DateChips 또는 홈 날짜 스테퍼에서 전달)
   // 단일: 그날 기준 점수 / 기간: 기간 중 최악일 대표점수로 목록 구성
   const { start: date, end } = parseDateRange(sp.date, sp.end);
   // 반려동물 동반 필터 (TourAPI detailPetTour2 수집분)
@@ -165,7 +167,7 @@ export default async function PlacesPage({ searchParams }: Props) {
           })}
         </nav>
 
-        {/* 동행 프로필 전환 + 반려동물/유아 필터 (날짜·이동수단은 홈에서 선택) */}
+        {/* 동행 프로필 전환 + 반려동물/유아 필터 + 이동수단 */}
         <div className="flex flex-wrap items-center gap-2">
           <ProfileChips
             basePath="/places"
@@ -194,6 +196,36 @@ export default async function PlacesPage({ searchParams }: Props) {
           >
             👶 유아 동반 시설
           </Link>
+        </div>
+
+        {/* 이동수단 — 쿠키(PrefsPersist)로 기억되어 다음 방문에도 유지 */}
+        <div className="flex flex-wrap items-center gap-2">
+          {(
+            [
+              { key: "transit", label: "🚌 대중교통" },
+              { key: "car", label: "🚗 자차" },
+            ] as const
+          ).map((t) => (
+            <Link
+              key={t.key}
+              href={`/places${buildQuery({
+                // tr을 항상 명시 — 생략하면 쿠키(예: car)가 폴백돼 대중교통 전환이 안 됨
+                ...currentParams,
+                tr: t.key,
+              })}`}
+              aria-pressed={transport === t.key}
+              className={`inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+                transport === t.key
+                  ? "bg-slate-700 text-white shadow-sm"
+                  : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100"
+              }`}
+            >
+              {t.label}
+            </Link>
+          ))}
+          <span className="self-center text-xs text-slate-400">
+            자차는 대체지·코스를 더 넓게 (30→50km) 추천해요
+          </span>
         </div>
       </div>
 
@@ -332,7 +364,7 @@ export default async function PlacesPage({ searchParams }: Props) {
 
       {/* 우: 내 여행 계획 (lg에서만 sticky — 모바일은 하단 서랍) */}
       <div className="order-3 hidden lg:sticky lg:top-20 lg:block lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
-        <TravelPlannerPanel />
+        <TravelPlannerPanel courseAutoOpen={courseOpen} courseSigungu={sigunguCode} />
       </div>
 
       {/* 모바일 계획 서랍 (lg:hidden 내장) */}

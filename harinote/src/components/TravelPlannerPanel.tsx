@@ -3,20 +3,49 @@
 import { useState } from "react";
 import Link from "next/link";
 import CourseRouteMap from "@/components/CourseRouteMap";
+import CourseRecommendModal from "@/components/CourseRecommendModal";
 import { useTravelPlan } from "@/hooks/useTravelPlan";
+import { useSavedPlans } from "@/hooks/useSavedPlans";
 import { PLAN_DRAG_TYPE } from "@/components/PlannerCard";
 import { dateOfDay, totalDistanceKm, type PlanItem } from "@/lib/travel-plan";
-import { formatKoreanDate } from "@/lib/date";
+import { formatKoreanDate, todayISOSeoul } from "@/lib/date";
+
+const NIGHTS_OPTIONS = [
+  { nights: 0, label: "당일치기" },
+  { nights: 1, label: "1박 2일" },
+  { nights: 2, label: "2박 3일" },
+  { nights: 3, label: "3박 4일" },
+];
 
 /**
  * 내 여행 계획 패널 — 카드 드롭으로 담고, 일차별 탭으로 나눠 순서 정렬,
  * 일차마다 직선 루트+총거리. N박이면 1일차/2일차 탭. localStorage 영속.
  */
-export default function TravelPlannerPanel({ compact = false }: { compact?: boolean }) {
-  const { plan, hydrated, add, remove, move, moveToDay, setActiveDay, clear, count, days, activeDay, byDay } =
+interface Props {
+  compact?: boolean;
+  /** ?course=1 진입 시 AI 코스 추천 팝업을 열린 채 시작 (데스크톱 패널에만 전달) */
+  courseAutoOpen?: boolean;
+  courseSigungu?: number;
+}
+
+export default function TravelPlannerPanel({ compact = false, courseAutoOpen, courseSigungu }: Props) {
+  const { plan, hydrated, add, remove, move, moveToDay, setActiveDay, setTrip, clear, count, days, activeDay, byDay } =
     useTravelPlan();
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropActive, setDropActive] = useState(false);
+
+  // 계획 저장 — 인라인 이름 입력 → useSavedPlans에 스냅샷 기록
+  const { save } = useSavedPlans();
+  const [saving, setSaving] = useState(false);
+  const [saveName, setSaveName] = useState("");
+  const [savedFlash, setSavedFlash] = useState(false);
+  const defaultName = plan.from ? `${formatKoreanDate(plan.from)} 여행` : "내 여행 계획";
+  const confirmSave = () => {
+    save(saveName.trim() || defaultName, plan);
+    setSaving(false);
+    setSavedFlash(true);
+    setTimeout(() => setSavedFlash(false), 2000);
+  };
 
   // 카드에서 온 드롭 페이로드 파싱 (없으면 null = 내부 순서변경)
   function parseCardDrop(e: React.DragEvent): PlanItem | null {
@@ -57,14 +86,86 @@ export default function TravelPlannerPanel({ compact = false }: { compact?: bool
           )}
         </h2>
         {hydrated && count > 0 && (
-          <button
-            type="button"
-            onClick={clear}
-            className="text-xs font-semibold text-slate-400 transition-colors hover:text-red-500"
-          >
-            비우기
-          </button>
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                setSaveName(defaultName);
+                setSaving((v) => !v);
+              }}
+              className={`text-xs font-semibold transition-colors ${
+                savedFlash ? "text-teal-600" : "text-slate-400 hover:text-teal-600"
+              }`}
+            >
+              {savedFlash ? "✓ 저장했어요" : "저장"}
+            </button>
+            <button
+              type="button"
+              onClick={clear}
+              className="text-xs font-semibold text-slate-400 transition-colors hover:text-red-500"
+            >
+              비우기
+            </button>
+          </div>
         )}
+      </div>
+
+      {/* 저장 이름 입력 (저장 버튼 토글) */}
+      {saving && (
+        <form
+          className="flex items-center gap-2 border-b border-slate-100 px-4 py-2.5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            confirmSave();
+          }}
+        >
+          <input
+            type="text"
+            value={saveName}
+            onChange={(e) => setSaveName(e.target.value)}
+            aria-label="계획 이름"
+            maxLength={30}
+            autoFocus
+            className="min-w-0 flex-1 rounded-lg bg-white px-2 py-1.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500"
+          />
+          <button
+            type="submit"
+            className="shrink-0 rounded-lg bg-teal-600 px-2.5 py-1.5 text-xs font-bold text-white transition-colors hover:bg-teal-700"
+          >
+            저장
+          </button>
+        </form>
+      )}
+
+      {/* AI 코스 추천 — 팝업에서 테마·시군·프로필 선택 후 활성 일차에 담기 */}
+      <div className="border-b border-slate-100 px-4 py-2.5">
+        <CourseRecommendModal autoOpen={courseAutoOpen} initialSigungu={courseSigungu} />
+      </div>
+
+      {/* 여행 일수·출발일 설정 — localStorage 계획에만 반영 (일차 탭·날짜 라벨) */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-2.5">
+        <select
+          value={hydrated ? (plan.nights ?? 0) : 0}
+          onChange={(e) => setTrip(Number(e.target.value), plan.from)}
+          aria-label="여행 일수"
+          className="rounded-lg bg-white px-2 py-1.5 text-xs font-semibold text-slate-600 ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500"
+        >
+          {NIGHTS_OPTIONS.map((o) => (
+            <option key={o.nights} value={o.nights}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        <input
+          type="date"
+          value={hydrated ? (plan.from ?? "") : ""}
+          min={todayISOSeoul()}
+          onChange={(e) =>
+            setTrip(plan.nights ?? 0, e.target.value || undefined)
+          }
+          aria-label="여행 출발일"
+          className="rounded-lg bg-white px-2 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500"
+        />
       </div>
 
       {/* 일차 탭 (N박일 때만) */}
