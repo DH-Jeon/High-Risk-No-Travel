@@ -67,6 +67,11 @@ export function addItem(plan: TravelPlan, item: PlanItem, day = 1): TravelPlan {
   return { ...plan, items: [...plan.items, { ...item, day: item.day ?? day }] };
 }
 
+/** 여러 항목을 순서대로 특정 일차(기본 1)에 추가 — 중복 contentId는 addItem 규칙대로 스킵 */
+export function addItems(plan: TravelPlan, items: PlanItem[], day = 1): TravelPlan {
+  return items.reduce((acc, item) => addItem(acc, item, day), plan);
+}
+
 export function removeItem(plan: TravelPlan, contentId: number): TravelPlan {
   return { ...plan, items: plan.items.filter((p) => p.contentId !== contentId) };
 }
