@@ -103,7 +103,8 @@ export function useTravelPlan() {
     has,
     count: plan.items.length,
     days: totalDays(plan),
-    activeDay: plan.activeDay ?? 1,
+    // 기존 localStorage에 범위 밖 activeDay가 남아 있어도 마지막 일차로 보정
+    activeDay: Math.min(plan.activeDay ?? 1, totalDays(plan)),
     byDay: itemsByDay(plan),
   };
 }
