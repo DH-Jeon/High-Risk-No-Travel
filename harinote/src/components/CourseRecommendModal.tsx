@@ -5,7 +5,13 @@
  * 서버 액션(recommendCourses)으로 코스를 만들고, 코스를 현재 활성 일차에
  * 통째로 담는다. (sigungu, profile) 조합당 1회만 호출하고 테마 전환은 로컬 필터.
  */
-import { useEffect, useRef, useState, useTransition } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  useTransition,
+} from "react";
 import { createPortal } from "react-dom";
 import CourseCard from "@/components/CourseCard";
 import { has, toggled } from "@/components/ProfileChips";
@@ -43,6 +49,13 @@ export default function CourseRecommendModal({ autoOpen = false, initialSigungu 
   const [result, setResult] = useState<{ key: string; data: CourseResult } | null>(null);
   const [failed, setFailed] = useState(false);
   const [isPending, startTransition] = useTransition();
+  // 서버 렌더는 false → 클라이언트에서 true. autoOpen이어도 SSR에서
+  // document.body를 참조하지 않도록 포털 렌더를 마운트 후로 미룬다.
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
   const load = (nextSigungu: number, nextProfile: Profile) => {
     const key = `${nextSigungu}:${nextProfile}`;
@@ -53,6 +66,8 @@ export default function CourseRecommendModal({ autoOpen = false, initialSigungu 
       try {
         const data = await recommendCourses(nextSigungu, nextProfile);
         setResult({ key, data });
+        // 앞선 요청의 실패가 나중에 정착해도 최신 성공 결과를 가리지 않게 해제
+        setFailed(false);
       } catch {
         setFailed(true);
       }
@@ -74,6 +89,7 @@ export default function CourseRecommendModal({ autoOpen = false, initialSigungu 
       try {
         const data = await recommendCourses(initialSigungu, "default");
         setResult({ key: `${initialSigungu}:default`, data });
+        setFailed(false);
       } catch {
         setFailed(true);
       }
@@ -102,8 +118,9 @@ export default function CourseRecommendModal({ autoOpen = false, initialSigungu 
         🤖 AI 코스 추천
       </button>
 
-      {/* sticky 패널 안은 스태킹 컨텍스트라 z-50이 갇힌다 — body로 포털 */}
+      {/* sticky 패널 안은 스태킹 컨텍스트라 z-50이 갇힌다 — body로 포털 (마운트 후에만) */}
       {open &&
+        mounted &&
         createPortal(
         <div
           role="dialog"

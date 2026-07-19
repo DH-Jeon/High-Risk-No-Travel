@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 import { useSavedPlans } from "@/hooks/useSavedPlans";
 import { useTravelPlan } from "@/hooks/useTravelPlan";
 import { totalDays } from "@/lib/travel-plan";
-import { formatKoreanDate } from "@/lib/date";
+import { formatKoreanDate, todayISOSeoul } from "@/lib/date";
 import type { SavedPlan } from "@/lib/saved-plans";
 
 export default function SavedPlansList() {
@@ -76,7 +76,8 @@ export default function SavedPlansList() {
                 {saved.plan.from && ` · ${formatKoreanDate(saved.plan.from)} 출발`}
               </p>
               <p className="mt-0.5 text-[11px] text-slate-400">
-                {formatKoreanDate(saved.savedAt.slice(0, 10))} 저장
+                {/* savedAt은 UTC ISO — KST 날짜로 변환해야 자정~09시 저장분이 안 밀린다 */}
+                {formatKoreanDate(todayISOSeoul(new Date(saved.savedAt)))} 저장
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-2">

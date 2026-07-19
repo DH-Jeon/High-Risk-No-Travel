@@ -41,6 +41,7 @@ export default function TravelPlannerPanel({ compact = false, courseAutoOpen, co
   const [savedFlash, setSavedFlash] = useState(false);
   const defaultName = plan.from ? `${formatKoreanDate(plan.from)} 여행` : "내 여행 계획";
   const confirmSave = () => {
+    if (plan.items.length === 0) return; // 비운 직후 잔류 폼에서 빈 계획 저장 방지
     save(saveName.trim() || defaultName, plan);
     setSaving(false);
     setSavedFlash(true);
@@ -101,7 +102,10 @@ export default function TravelPlannerPanel({ compact = false, courseAutoOpen, co
             </button>
             <button
               type="button"
-              onClick={clear}
+              onClick={() => {
+                setSaving(false);
+                clear();
+              }}
               className="text-xs font-semibold text-slate-400 transition-colors hover:text-red-500"
             >
               비우기
@@ -110,8 +114,8 @@ export default function TravelPlannerPanel({ compact = false, courseAutoOpen, co
         )}
       </div>
 
-      {/* 저장 이름 입력 (저장 버튼 토글) */}
-      {saving && (
+      {/* 저장 이름 입력 (저장 버튼 토글) — 계획이 비면 함께 사라진다 */}
+      {saving && hydrated && count > 0 && (
         <form
           className="flex items-center gap-2 border-b border-slate-100 px-4 py-2.5"
           onSubmit={(e) => {

@@ -52,13 +52,15 @@ export function itemsByDay(plan: TravelPlan): PlanItem[][] {
   return groups;
 }
 
-/** 박수·시작일 설정 (기간 밖 일차의 항목은 마지막 일차로 당김) */
+/** 박수·시작일 설정 (기간 밖 일차의 항목·활성 일차는 마지막 일차로 당김) */
 export function setTrip(plan: TravelPlan, nights: number, from?: string): TravelPlan {
   const days = nights + 1;
   const items = plan.items.map((it) =>
     (it.day ?? 1) > days ? { ...it, day: days } : it,
   );
-  return { ...plan, nights, from, items };
+  const activeDay =
+    plan.activeDay !== undefined ? Math.min(plan.activeDay, days) : undefined;
+  return { ...plan, nights, from, items, activeDay };
 }
 
 /** 중복(contentId) 없이 특정 일차(기본 1)에 추가 */

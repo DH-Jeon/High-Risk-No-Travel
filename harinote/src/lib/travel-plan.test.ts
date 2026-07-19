@@ -117,6 +117,16 @@ describe("N박 여행 (nights/day)", () => {
     p = setTrip(p, 0, "2026-08-01"); // 당일(1일)로 축소
     expect(p.items[0].day).toBe(1);
   });
+
+  it("setTrip 축소 시 범위 밖 activeDay도 마지막 일차로 보정", () => {
+    let p = setTrip(EMPTY_PLAN, 2, "2026-08-01"); // 3일
+    p = { ...p, activeDay: 3 };
+    p = setTrip(p, 0, "2026-08-01"); // 당일로 축소
+    expect(p.activeDay).toBe(1);
+    // 범위 안이면 유지
+    const q = setTrip({ ...EMPTY_PLAN, activeDay: 2 }, 3, "2026-08-01");
+    expect(q.activeDay).toBe(2);
+  });
 });
 
 describe("isValidPlan", () => {
