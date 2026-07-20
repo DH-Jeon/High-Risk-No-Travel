@@ -81,8 +81,9 @@ export default function RegionPanel({
               이 점수는 왜?
             </p>
             <p className="mb-3 text-xs text-slate-400">
-              {selected.sampleName ? `${selected.sampleName} 기준` : "대표 관광지 기준"}
-              {" · "}날씨는 시군 공통, 의료·산불은 이 장소 값
+              날씨는 시군 야외 기준
+              {selected.sampleName ? `(${selected.sampleName})` : ""} · 응급의료·산사태는
+              시군 전체 집계
             </p>
             <RiskBreakdownBar factors={selected.factors} compact />
           </div>
