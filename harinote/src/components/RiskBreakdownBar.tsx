@@ -9,14 +9,53 @@ const LEVEL_STYLE: Record<RiskLevel, { bar: string; badge: string }> = {
 /** 위험 요인별 감점 막대 — "왜 이 점수인가"를 설명하는 핵심 컴포넌트 */
 export default function RiskBreakdownBar({
   factors,
+  compact = false,
 }: {
   factors: RiskFactor[];
+  /** 지역 팝업 등 좁은 곳: 카드·설명 없이 한 화면에 다 보이는 조밀 행 */
+  compact?: boolean;
 }) {
   if (factors.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
         표시할 세부 주의 요인 데이터가 아직 없습니다.
       </div>
+    );
+  }
+
+  if (compact) {
+    return (
+      <ul className="space-y-1.5">
+        {factors.map((f) => {
+          const s = LEVEL_STYLE[f.level];
+          const ratio = f.maxPoints > 0 ? Math.min(f.points / f.maxPoints, 1) : 0;
+          const widthPct = f.points > 0 ? Math.max(ratio * 100, 5) : 0;
+          return (
+            <li key={f.key} className="grid grid-cols-[5.5rem_1fr_auto] items-center gap-2">
+              <span className="flex items-center gap-1 truncate text-xs font-semibold text-slate-700">
+                {f.label}
+                <span className="tabular-nums text-[10px] font-normal text-slate-400">
+                  {f.value}
+                  {f.unit}
+                </span>
+              </span>
+              <span
+                className="h-2 w-full overflow-hidden rounded-full bg-slate-100"
+                role="img"
+                aria-label={`${f.label} 감점 ${f.points}점`}
+              >
+                <span
+                  className={`block h-full rounded-full ${s.bar}`}
+                  style={{ width: `${widthPct}%` }}
+                />
+              </span>
+              <span className="w-8 text-right text-xs font-bold tabular-nums text-slate-600">
+                {f.points > 0 ? `−${f.points}` : "0"}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
     );
   }
 

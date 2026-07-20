@@ -83,9 +83,7 @@ export default function RegionPanel({
             <p className="mb-3 text-xs text-slate-400">
               안전지수 산출 지표 — 대표 관광지 기준, 요인별 감점
             </p>
-            <div className="max-h-[360px] overflow-y-auto pr-1">
-              <RiskBreakdownBar factors={selected.factors} />
-            </div>
+            <RiskBreakdownBar factors={selected.factors} compact />
           </div>
         )}
 
