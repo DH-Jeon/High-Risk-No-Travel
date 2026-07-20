@@ -57,8 +57,8 @@ export default function RegionPanel({
                 grade={selected.grade}
               />
               <p className="text-xs text-slate-500">
-                {dateLabel} 기준 {GRADE_LABEL[selected.grade]} — 시군 내 관광지
-                안전점수의 중앙값입니다.
+                {dateLabel} 기준 {GRADE_LABEL[selected.grade]} — 아래 지표 감점을
+                합산한 시군 대표 점수입니다.
               </p>
             </div>
           ) : (
