@@ -133,3 +133,36 @@ export function computeTci(input: TciInput): number {
   const norm = wSum > 0 ? acc / wSum : 0; // -0.6 ~ 1.0
   return Math.round(Math.max(0, Math.min(100, norm * 100)));
 }
+
+/** 축별 감점(이상값 대비 부족분) — score.ts의 요인 표시용. thermal은 체감온도, rain·wind 분리. */
+export interface TciBreakdown {
+  tci: number;
+  /** 각 축이 100점 만점에서 깎은 양(0~축배점). 합은 대략 100−tci (음수 점수는 배점상한에서 clamp). */
+  deductions: { thermal: number; rain: number; pm: number; wind: number; sun: number };
+}
+
+/**
+ * TCI + 축별 감점 분해. 각 축 감점 = 정규화가중 × (5−점수)/5 × 100,
+ * 0~해당 축 배점으로 clamp(음수 점수가 배점을 넘겨도 표시 상한은 배점).
+ */
+export function computeTciBreakdown(input: TciInput): TciBreakdown {
+  const raw: Record<keyof TciBreakdown["deductions"], number | undefined> = {
+    thermal: thermalScore(input.feelsC),
+    rain: rainScore(input.rainMmDaily),
+    pm: pmScore(input.pm25),
+    wind: windScore(input.windMs),
+    sun: input.sunHours !== undefined ? sunScore(input.sunHours) : undefined,
+  };
+  let wSum = 0;
+  for (const k of ["thermal", "rain", "pm", "wind", "sun"] as const) {
+    if (raw[k] !== undefined) wSum += TCI_WEIGHTS[k];
+  }
+  const deductions = { thermal: 0, rain: 0, pm: 0, wind: 0, sun: 0 };
+  for (const k of ["thermal", "rain", "pm", "wind", "sun"] as const) {
+    const s = raw[k];
+    if (s === undefined || wSum === 0) continue;
+    const share = (TCI_WEIGHTS[k] / wSum) * 100; // 축 배점(정규화)
+    deductions[k] = Math.max(0, Math.min(share, share * ((5 - s) / 5)));
+  }
+  return { tci: computeTci(input), deductions };
+}
