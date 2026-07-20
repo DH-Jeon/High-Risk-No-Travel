@@ -24,8 +24,8 @@ export default function RegionDashboard({
   const [selectedCode, setSelectedCode] = useState<number | null>(null);
 
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      <div className="lg:col-span-2">
+    <div className="grid gap-4 lg:grid-cols-5">
+      <div className="lg:col-span-3">
         <RegionRiskMap
           regions={regions}
           selectedCode={selectedCode}
