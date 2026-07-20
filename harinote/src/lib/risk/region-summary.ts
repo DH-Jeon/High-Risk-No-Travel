@@ -8,7 +8,7 @@
  * getRegionSummaries는 datasource(서버 전용)를 호출하므로 이 모듈도 서버 전용.
  * 순수 함수 summarizeRegions는 테스트에서 직접 호출한다.
  */
-import type { Profile, RiskLevel } from "@/lib/safety/types";
+import type { Profile, RiskFactor, RiskLevel } from "@/lib/safety/types";
 import { gradeForScore } from "@/lib/safety/weights";
 import { SIGUNGU_SEATS } from "@/lib/risk/regions";
 import {
@@ -28,6 +28,11 @@ export interface RegionSummary {
   /** 중앙값의 등급(gradeForScore) — 관광지 0곳이면 null */
   grade: RiskLevel | null;
   placeCount: number;
+  /**
+   * 중앙값에 가장 가까운 대표 관광지의 요인 분해 — "이 점수가 왜 나왔나"를
+   * 안전지수 산출식 지표(체감온도·강수·미먼·산불·산사태·응급의료)로 설명. 0곳이면 [].
+   */
+  factors: RiskFactor[];
 }
 
 /** 정렬된 배열의 중앙값 — 짝수 개면 가운데 두 값 평균을 반올림 */
@@ -43,21 +48,33 @@ function median(sorted: number[]): number {
  * 관광지 0곳인 시군도 SIGUNGU_SEATS 기준으로 포함한다 (medianScore/grade = null).
  */
 export function summarizeRegions(places: PlaceWithSafety[]): RegionSummary[] {
-  const scoresByCode = new Map<number, number[]>();
+  const placesByCode = new Map<number, PlaceWithSafety[]>();
   for (const place of places) {
     const code = place.sigunguCode;
     if (code === undefined || !(code in SIGUNGU_SEATS)) continue;
-    const scores = scoresByCode.get(code) ?? [];
-    scores.push(place.safety.score);
-    scoresByCode.set(code, scores);
+    const arr = placesByCode.get(code) ?? [];
+    arr.push(place);
+    placesByCode.set(code, arr);
   }
 
   return Object.keys(SIGUNGU_SEATS)
     .map(Number)
     .map((code) => {
       const seat = SIGUNGU_SEATS[code];
-      const scores = (scoresByCode.get(code) ?? []).sort((a, b) => a - b);
+      const group = placesByCode.get(code) ?? [];
+      const scores = group.map((p) => p.safety.score).sort((a, b) => a - b);
       const medianScore = scores.length > 0 ? median(scores) : null;
+      // 대표 관광지 = 중앙값에 점수가 가장 가까운 곳 → 그 요인 분해로 시군 점수를 설명
+      let factors: RiskFactor[] = [];
+      if (medianScore !== null) {
+        const rep = group.reduce((best, p) =>
+          Math.abs(p.safety.score - medianScore) <
+          Math.abs(best.safety.score - medianScore)
+            ? p
+            : best,
+        );
+        factors = rep.safety.factors;
+      }
       return {
         sigunguCode: code,
         name: seat.name,
@@ -66,6 +83,7 @@ export function summarizeRegions(places: PlaceWithSafety[]): RegionSummary[] {
         medianScore,
         grade: medianScore === null ? null : gradeForScore(medianScore),
         placeCount: scores.length,
+        factors,
       };
     })
     // 안전점수 높은 시군부터 (데이터 없는 곳은 맨 뒤)
