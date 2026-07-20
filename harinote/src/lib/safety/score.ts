@@ -67,7 +67,19 @@ export function computeSafetyScore(
 
   // envType·프로필로 변조 (실내 할인·계곡 강수 가중·미먼 민감군)
   const thermalPts = Math.round(tb.deductions.thermal * env.heat);
-  const rainPts = Math.round(tb.deductions.rain * env.rain);
+  // 호우 severity — 쾌적(TCI)은 5mm에서 포화하지만, 호우주의보(60mm)·경보(90mm)는
+  // 침수·급류 위험이라 추가 감점(기상청 호우 특보 기준). 지형(env.rain)에 비례.
+  const heavyRain =
+    input.rainMm === undefined
+      ? 0
+      : input.rainMm >= 90
+        ? 16
+        : input.rainMm >= 60
+          ? 11
+          : input.rainMm >= 30
+            ? 6
+            : 0;
+  const rainPts = Math.round((tb.deductions.rain + heavyRain) * env.rain);
   const windPts = Math.round(tb.deductions.wind * env.wind);
   const pmPts = Math.round(tb.deductions.pm * env.pm * (prof.pmSensitive ? 1.4 : 1));
 
