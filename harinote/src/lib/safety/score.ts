@@ -82,6 +82,10 @@ export function computeSafetyScore(
   const rainPts = Math.round((tb.deductions.rain + heavyRain) * env.rain);
   const windPts = Math.round(tb.deductions.wind * env.wind);
   const pmPts = Math.round(tb.deductions.pm * env.pm * (prof.pmSensitive ? 1.4 : 1));
+  // 강수·바람 합 상한 (원래 엔진의 강수·강풍 상한 복원) — 날씨 하나가 점수를 통째로
+  // 무너뜨리지 않게 바운드. 진짜 "가지마"는 재난경보(산사태·산불) override가 담당.
+  const RAIN_WIND_MAX = 40;
+  const rainWindPts = Math.min(RAIN_WIND_MAX, rainPts + windPts);
 
   const thermalNote =
     feelsBase >= 33 ? "무더위" : feelsBase <= 4 ? "추위" : feelsBase >= 28 ? "더움" : "쾌적";
@@ -106,9 +110,9 @@ export function computeSafetyScore(
     value: input.rainProbPct,
     unit: "%",
     threshold: 60,
-    points: rainPts + windPts,
-    maxPoints: WEATHER_MAX.rain + WEATHER_MAX.wind,
-    level: levelForPoints(rainPts + windPts, WEATHER_MAX.rain + WEATHER_MAX.wind),
+    points: rainWindPts,
+    maxPoints: RAIN_WIND_MAX,
+    level: levelForPoints(rainWindPts, RAIN_WIND_MAX),
     description: `강수확률 ${input.rainProbPct}%${
       input.rainMm !== undefined && input.rainMm >= 3 ? ` · ${input.rainMm}mm` : ""
     } · 풍속 ${input.windMs}m/s (관광기후지수)`,
@@ -125,7 +129,7 @@ export function computeSafetyScore(
     description: `PM2.5 ${input.pm25}㎍/㎥ — 환경부 '${pmGradeLabel(input.pm25)}' 등급${prof.pmSensitive ? " · 민감군 기준" : ""}`,
   });
 
-  const weatherRisk = thermalPts + rainPts + windPts + pmPts;
+  const weatherRisk = thermalPts + rainWindPts + pmPts;
 
   // ── 안전층: 산불 (산림청 단계) ──
   const fireLevel = normalizeForestFireLevel(input.forestFireLevel);
