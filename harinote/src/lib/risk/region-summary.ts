@@ -31,8 +31,11 @@ export interface RegionSummary {
   /**
    * 중앙값에 가장 가까운 대표 관광지의 요인 분해 — "이 점수가 왜 나왔나"를
    * 안전지수 산출식 지표(체감온도·강수·미먼·산불·산사태·응급의료)로 설명. 0곳이면 [].
+   * 날씨 요인은 시군 대표점 공유이나 의료·산불은 이 대표 장소값이라 sampleName으로 명시.
    */
   factors: RiskFactor[];
+  /** factors의 출처가 된 대표 관광지 이름 (없으면 null) */
+  sampleName: string | null;
 }
 
 /** 정렬된 배열의 중앙값 — 짝수 개면 가운데 두 값 평균을 반올림 */
@@ -66,6 +69,7 @@ export function summarizeRegions(places: PlaceWithSafety[]): RegionSummary[] {
       const medianScore = scores.length > 0 ? median(scores) : null;
       // 대표 관광지 = 중앙값에 점수가 가장 가까운 곳 → 그 요인 분해로 시군 점수를 설명
       let factors: RiskFactor[] = [];
+      let sampleName: string | null = null;
       if (medianScore !== null) {
         const rep = group.reduce((best, p) =>
           Math.abs(p.safety.score - medianScore) <
@@ -74,6 +78,7 @@ export function summarizeRegions(places: PlaceWithSafety[]): RegionSummary[] {
             : best,
         );
         factors = rep.safety.factors;
+        sampleName = rep.title ?? null;
       }
       return {
         sigunguCode: code,
@@ -84,6 +89,7 @@ export function summarizeRegions(places: PlaceWithSafety[]): RegionSummary[] {
         grade: medianScore === null ? null : gradeForScore(medianScore),
         placeCount: scores.length,
         factors,
+        sampleName,
       };
     })
     // 안전점수 높은 시군부터 (데이터 없는 곳은 맨 뒤)
