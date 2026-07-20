@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { RegionSummary } from "@/lib/risk/region-summary";
-import { GRADE_LABEL, type RiskLevel } from "@/lib/safety/types";
+import { GRADE_LABEL } from "@/lib/safety/types";
 import SafetyScoreBadge from "@/components/SafetyScoreBadge";
 import RiskBreakdownBar from "@/components/RiskBreakdownBar";
 
@@ -81,7 +81,8 @@ export default function RegionPanel({
               이 점수는 왜?
             </p>
             <p className="mb-3 text-xs text-slate-400">
-              안전지수 산출 지표 — 대표 관광지 기준, 요인별 감점
+              {selected.sampleName ? `${selected.sampleName} 기준` : "대표 관광지 기준"}
+              {" · "}날씨는 시군 공통, 의료·산불은 이 장소 값
             </p>
             <RiskBreakdownBar factors={selected.factors} compact />
           </div>
@@ -127,52 +128,17 @@ export default function RegionPanel({
     </li>
   );
 
-  // 등급별 문단 — 낮음 → 있음 → 높음 → 데이터 없음
-  const GRADE_ORDER: RiskLevel[] = ["low", "moderate", "high"];
-  const groups = GRADE_ORDER.map((g) => ({
-    grade: g,
-    items: regions.filter((r) => r.grade === g),
-  })).filter((g) => g.items.length > 0);
-  const noData = regions.filter((r) => r.grade === null);
-
   return (
     <aside className="flex flex-col rounded-2xl bg-white ring-1 ring-slate-200">
       <p className="border-b border-slate-100 px-5 py-3 text-sm font-bold text-slate-900">
         시군별 요약
         <span className="ml-2 text-xs font-medium text-slate-400">
-          지도나 목록에서 시군을 선택하세요
+          점수 높은 시군부터 · 지도나 목록에서 선택
         </span>
       </p>
-      <div className="max-h-[440px] overflow-y-auto">
-        {groups.map(({ grade, items }) => (
-          <section key={grade}>
-            <h3 className="sticky top-0 z-10 flex items-center gap-2 border-b border-slate-100 bg-slate-50/95 px-5 py-1.5 text-xs font-bold text-slate-500 backdrop-blur">
-              <span
-                aria-hidden="true"
-                className={`h-2 w-2 rounded-full ${
-                  grade === "low"
-                    ? "bg-emerald-500"
-                    : grade === "moderate"
-                      ? "bg-amber-500"
-                      : "bg-red-500"
-                }`}
-              />
-              {GRADE_LABEL[grade]}
-              <span className="font-medium text-slate-400">{items.length}곳</span>
-            </h3>
-            <ul className="divide-y divide-slate-100">{items.map(renderItem)}</ul>
-          </section>
-        ))}
-        {noData.length > 0 && (
-          <section>
-            <h3 className="sticky top-0 z-10 border-b border-slate-100 bg-slate-50/95 px-5 py-1.5 text-xs font-bold text-slate-400 backdrop-blur">
-              데이터 없음{" "}
-              <span className="font-medium text-slate-300">{noData.length}곳</span>
-            </h3>
-            <ul className="divide-y divide-slate-100">{noData.map(renderItem)}</ul>
-          </section>
-        )}
-      </div>
+      <ul className="max-h-[440px] divide-y divide-slate-100 overflow-y-auto">
+        {regions.map(renderItem)}
+      </ul>
     </aside>
   );
 }
