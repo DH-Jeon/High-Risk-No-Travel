@@ -30,9 +30,12 @@ export interface RegionSummary {
   name: string;
   lat: number;
   lng: number;
-  /** 시군 내 관광지 안전점수 중앙값 — 관광지 0곳이면 null ("데이터 없음") */
+  /**
+   * 시군 대표 안전점수 — 아래 factors(요인 감점) 합으로 산출(100−합).
+   * 분해 지표와 점수가 항상 일치한다. 관광지 0곳이면 null ("데이터 없음").
+   */
   medianScore: number | null;
-  /** 중앙값의 등급(gradeForScore) — 관광지 0곳이면 null */
+  /** 대표 점수의 등급(gradeForScore) — 관광지 0곳이면 null */
   grade: RiskLevel | null;
   placeCount: number;
   /**
@@ -73,22 +76,21 @@ export function summarizeRegions(places: PlaceWithSafety[]): RegionSummary[] {
       const seat = SIGUNGU_SEATS[code];
       const group = placesByCode.get(code) ?? [];
       const scores = group.map((p) => p.safety.score).sort((a, b) => a - b);
-      const medianScore = scores.length > 0 ? median(scores) : null;
-      // 대표 관광지 = 중앙값에 점수가 가장 가까운 곳 → 그 요인 분해로 시군 점수를 설명
-      // 시군 대표 요인 분해 (팝업 "이 점수는 왜?")
-      // - 날씨(체감·강수·미먼)+산불: 대표 야외장소(실내 제외) 기준 = 시군 공통 날씨
+      // 대표 야외장소 선택 앵커 = 관광지 점수 중앙값 (표시 점수는 아래 요인 합)
+      const repAnchor = scores.length > 0 ? median(scores) : null;
+      // 시군 대표 요인 분해 (팝업 "이 점수는 왜?") — 표시 점수 = 이 요인 감점 합
       // - 산사태: 시군 내 최고 위험 지형(worst-spot) — 산림청 시군 발령 개념
       // - 응급의료: 시군 관광지 응급실거리 커버리지(골든타임 %+중앙값)
       let factors: RiskFactor[] = [];
       let sampleName: string | null = null;
-      if (medianScore !== null && group.length > 0) {
+      if (repAnchor !== null && group.length > 0) {
         // 날씨 기준 = 실내 할인 없는 야외장소 우선 (원주 실내 대표로 강수가 축소되는 왜곡 방지)
         const general = group.filter((p) => p.envType === "outdoor_general");
         const outdoor = group.filter((p) => p.envType !== "indoor");
         const pool = general.length ? general : outdoor.length ? outdoor : group;
         const rep = pool.reduce((best, p) =>
-          Math.abs(p.safety.score - medianScore) <
-          Math.abs(best.safety.score - medianScore)
+          Math.abs(p.safety.score - repAnchor) <
+          Math.abs(best.safety.score - repAnchor)
             ? p
             : best,
         );
@@ -144,13 +146,18 @@ export function summarizeRegions(places: PlaceWithSafety[]): RegionSummary[] {
           });
         }
       }
+      // 시군 표시 점수 = 요인 감점 합 (분해 지표와 점수가 항상 일치) — 관광지 0곳이면 null
+      const regionScore =
+        scores.length > 0
+          ? Math.max(0, Math.min(100, 100 - factors.reduce((s, f) => s + f.points, 0)))
+          : null;
       return {
         sigunguCode: code,
         name: seat.name,
         lat: seat.lat,
         lng: seat.lng,
-        medianScore,
-        grade: medianScore === null ? null : gradeForScore(medianScore),
+        medianScore: regionScore,
+        grade: regionScore === null ? null : gradeForScore(regionScore),
         placeCount: scores.length,
         factors,
         sampleName,
