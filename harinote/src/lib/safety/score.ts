@@ -150,11 +150,12 @@ export function computeSafetyScore(
 
   const weatherRisk = thermalPts + rainWindPts + pmPts + sunPts;
 
-  // ── 안전층: 산불 (산림청 단계) ──
+  // ── 안전층: 산불 (산림청 단계 → 여행 권고 등급 앵커) ──
+  // 등급 감점(0/15/45/80)이 100점 만점 기준이라 그 자체가 등급을 보장(높음→≤55, 매우높음→≤20).
+  // 실내 할인(env) 미적용: 매우높음은 대피·통제급이라 지형과 무관하게 방문자제여야 한다.
   const fireLevel = normalizeForestFireLevel(input.forestFireLevel);
-  const fire = Math.round(
-    Math.min(FOREST_FIRE.MAX_POINTS, forestFirePoints(fireLevel) * env.fire),
-  );
+  const fire = Math.round(Math.min(FOREST_FIRE.MAX_POINTS, forestFirePoints(fireLevel)));
+  const fireNote = fireLevel >= 4 ? " → 방문 자제" : fireLevel >= 3 ? " → 주의" : "";
   factors.push({
     key: "forest_fire",
     label: "산불",
@@ -164,7 +165,7 @@ export function computeSafetyScore(
     points: fire,
     maxPoints: FOREST_FIRE.MAX_POINTS,
     level: levelForPoints(fire, FOREST_FIRE.MAX_POINTS),
-    description: `산불위험 ${fireLevel}단계 — 산림청 '${FOREST_FIRE.LEVEL_LABEL[fireLevel]}'`,
+    description: `산불위험 ${fireLevel}단계 — 산림청 '${FOREST_FIRE.LEVEL_LABEL[fireLevel]}'${fireNote}`,
   });
 
   // ── 안전층: 산사태 (강우×지형 프록시, 공식 발령 상향 override) ──
@@ -174,6 +175,8 @@ export function computeSafetyScore(
   if (landslideLevel > 0) {
     landslide = Math.round(Math.min(LANDSLIDE.MAX_POINTS, landslidePoints(landslideLevel)));
     const official = (input.landslideLevel ?? 0) >= landslideLevel;
+    const lsNote = landslideLevel >= 2 ? " → 방문 자제" : " → 주의";
+    const src = official ? "산림청 예보발령" : "예보 강수량·지형 기반 추정";
     factors.push({
       key: "landslide",
       label: "산사태",
@@ -183,9 +186,7 @@ export function computeSafetyScore(
       points: landslide,
       maxPoints: LANDSLIDE.MAX_POINTS,
       level: levelForPoints(landslide, LANDSLIDE.MAX_POINTS),
-      description: official
-        ? `산사태 ${LANDSLIDE.LEVEL_LABEL[landslideLevel]} — 산림청 예보발령`
-        : `산사태 위험 ${LANDSLIDE.LEVEL_LABEL[landslideLevel]} — 예보 강수량·지형 기반 추정`,
+      description: `산사태 ${LANDSLIDE.LEVEL_LABEL[landslideLevel]} — ${src}${lsNote}`,
     });
   }
 
@@ -244,15 +245,13 @@ export function computeSafetyScore(
   }
 
   // ── 합산: score = 100 − (쾌적 + 안전 + 이동) ──
+  // 재난 단계 감점이 등급컷에 앵커돼 있어(높음 45→≤55 주의, 매우높음/경보 80→≤20 방문자제)
+  // 별도 override 없이 감점 합만으로 등급이 보장된다. 점수 = 100−감점 합(항상 일치).
   const disasterRisk = fire + landslide + shelter;
   const medicalRisk = medical;
   const mobilityRisk = road;
   const total = weatherRisk + disasterRisk + medicalRisk + mobilityRisk;
-  let score = Math.max(0, Math.min(100, 100 - total));
-
-  // ── override: 재난 경보급(산불 4단계·산사태 경보 2)이면 총점 강제 하향 ──
-  const alert = fireLevel >= 4 || landslideLevel >= 2;
-  if (alert) score = Math.min(score, OVERRIDE_CAP);
+  const score = Math.max(0, Math.min(100, 100 - total));
 
   return {
     score,

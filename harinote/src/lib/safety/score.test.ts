@@ -119,10 +119,11 @@ describe("안전층 — 산불·산사태·응급의료", () => {
     expect(factor(run({ forestFireLevel: 3 }), "forest_fire").points).toBeGreaterThan(0);
   });
 
-  it("산불 3단계 산악은 일반 야외보다 감점 크다(×1.3)", () => {
-    const general = factor(run({ forestFireLevel: 3 }), "forest_fire").points;
-    const mountain = factor(run({ forestFireLevel: 3 }, "outdoor_mountain"), "forest_fire").points;
-    expect(mountain).toBeGreaterThan(general);
+  it("산불 단계가 여행 등급을 보장 — 높음→주의, 매우높음→방문자제(지형 무관)", () => {
+    // 감점(0/15/45/80)이 100점 만점 기준이라 그 자체가 등급을 강제한다
+    expect(run({ forestFireLevel: 3 }).grade).toBe("moderate"); // 주의
+    expect(run({ forestFireLevel: 4 }).grade).toBe("high"); // 방문 자제
+    expect(run({ forestFireLevel: 4 }, "indoor").grade).toBe("high"); // 실내도 대피급
   });
 
   it("산사태: 비 안 오면 요인 없음, 공식 경보(2)는 요인 발생", () => {
