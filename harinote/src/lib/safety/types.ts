@@ -36,6 +36,8 @@ export interface RiskInput {
   rainMm?: number;
   /** 풍속 m/s */
   windMs: number;
+  /** 일조시간 대용(h) — 하늘상태(SKY) 환산. TCI 일조 축. 없으면 4축 재정규화 */
+  sunHours?: number;
   /** 초미세먼지 PM2.5 ㎍/㎥ (AirKorea) */
   pm25: number;
   /** 산불위험 단계 1~4 (산림청: 1 낮음 ~ 4 심각) */
@@ -58,6 +60,7 @@ export type RiskFactorKey =
   | "heat" // 폭염
   | "cold" // 한파 (계절 모드 전용 — 30년 기후 시나리오에서만 계산)
   | "rain_wind" // 강수·강풍
+  | "sun" // 일조 (하늘상태 SKY 환산 — TCI 일조 축)
   | "pm" // 미세먼지
   | "forest_fire" // 산불
   | "landslide" // 산사태 (강우×지형 프록시 + 산림청 예보발령 override)
