@@ -21,3 +21,6 @@ harinote/supabase/.temp/
 # 로그
 *.log
 .gstack/
+
+# 분석 중간 산출물 (재생성 가능 — 20_collect_weather_2022.py로 재수집)
+analysis/data/climate_2022_raw/
