@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { RegionSummary } from "@/lib/risk/region-summary";
-import { GRADE_LABEL } from "@/lib/safety/types";
+import { GRADE_LABEL, type RiskLevel } from "@/lib/safety/types";
 import SafetyScoreBadge from "@/components/SafetyScoreBadge";
 import RiskBreakdownBar from "@/components/RiskBreakdownBar";
 
@@ -105,6 +105,36 @@ export default function RegionPanel({
     );
   }
 
+  const renderItem = (region: RegionSummary) => (
+    <li key={region.sigunguCode}>
+      <button
+        type="button"
+        onClick={() => onSelect(region.sigunguCode)}
+        className="flex w-full items-center justify-between gap-2 px-5 py-2.5 text-left transition-colors hover:bg-teal-50/60"
+      >
+        <span className="text-sm font-semibold text-slate-700">
+          {region.name}
+          <span className="ml-2 text-xs font-normal text-slate-400">
+            관광지 {region.placeCount}곳
+          </span>
+        </span>
+        {region.medianScore !== null && region.grade !== null ? (
+          <SafetyScoreBadge score={region.medianScore} grade={region.grade} />
+        ) : (
+          <span className="text-xs font-semibold text-slate-400">데이터 없음</span>
+        )}
+      </button>
+    </li>
+  );
+
+  // 등급별 문단 — 낮음 → 있음 → 높음 → 데이터 없음
+  const GRADE_ORDER: RiskLevel[] = ["low", "moderate", "high"];
+  const groups = GRADE_ORDER.map((g) => ({
+    grade: g,
+    items: regions.filter((r) => r.grade === g),
+  })).filter((g) => g.items.length > 0);
+  const noData = regions.filter((r) => r.grade === null);
+
   return (
     <aside className="flex flex-col rounded-2xl bg-white ring-1 ring-slate-200">
       <p className="border-b border-slate-100 px-5 py-3 text-sm font-bold text-slate-900">
@@ -113,34 +143,36 @@ export default function RegionPanel({
           지도나 목록에서 시군을 선택하세요
         </span>
       </p>
-      <ul className="max-h-[420px] divide-y divide-slate-100 overflow-y-auto sm:max-h-[440px]">
-        {regions.map((region) => (
-          <li key={region.sigunguCode}>
-            <button
-              type="button"
-              onClick={() => onSelect(region.sigunguCode)}
-              className="flex w-full items-center justify-between gap-2 px-5 py-2.5 text-left transition-colors hover:bg-teal-50/60"
-            >
-              <span className="text-sm font-semibold text-slate-700">
-                {region.name}
-                <span className="ml-2 text-xs font-normal text-slate-400">
-                  관광지 {region.placeCount}곳
-                </span>
-              </span>
-              {region.medianScore !== null && region.grade !== null ? (
-                <SafetyScoreBadge
-                  score={region.medianScore}
-                  grade={region.grade}
-                />
-              ) : (
-                <span className="text-xs font-semibold text-slate-400">
-                  데이터 없음
-                </span>
-              )}
-            </button>
-          </li>
+      <div className="max-h-[440px] overflow-y-auto">
+        {groups.map(({ grade, items }) => (
+          <section key={grade}>
+            <h3 className="sticky top-0 z-10 flex items-center gap-2 border-b border-slate-100 bg-slate-50/95 px-5 py-1.5 text-xs font-bold text-slate-500 backdrop-blur">
+              <span
+                aria-hidden="true"
+                className={`h-2 w-2 rounded-full ${
+                  grade === "low"
+                    ? "bg-emerald-500"
+                    : grade === "moderate"
+                      ? "bg-amber-500"
+                      : "bg-red-500"
+                }`}
+              />
+              {GRADE_LABEL[grade]}
+              <span className="font-medium text-slate-400">{items.length}곳</span>
+            </h3>
+            <ul className="divide-y divide-slate-100">{items.map(renderItem)}</ul>
+          </section>
         ))}
-      </ul>
+        {noData.length > 0 && (
+          <section>
+            <h3 className="sticky top-0 z-10 border-b border-slate-100 bg-slate-50/95 px-5 py-1.5 text-xs font-bold text-slate-400 backdrop-blur">
+              데이터 없음{" "}
+              <span className="font-medium text-slate-300">{noData.length}곳</span>
+            </h3>
+            <ul className="divide-y divide-slate-100">{noData.map(renderItem)}</ul>
+          </section>
+        )}
+      </div>
     </aside>
   );
 }
