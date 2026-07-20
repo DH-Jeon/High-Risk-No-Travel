@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { RegionSummary } from "@/lib/risk/region-summary";
 import { GRADE_LABEL } from "@/lib/safety/types";
 import SafetyScoreBadge from "@/components/SafetyScoreBadge";
+import RiskBreakdownBar from "@/components/RiskBreakdownBar";
 
 interface RegionPanelProps {
   regions: RegionSummary[];
@@ -72,6 +73,22 @@ export default function RegionPanel({
             {selected.placeCount}곳
           </strong>
         </p>
+
+        {/* 왜 이 점수인가 — 안전지수 산출 지표 시각화 (대표 관광지 기준) */}
+        {selected.factors.length > 0 && (
+          <div className="mt-4 border-t border-slate-100 pt-4">
+            <p className="mb-1 text-sm font-bold text-slate-800">
+              이 점수는 왜?
+            </p>
+            <p className="mb-3 text-xs text-slate-400">
+              안전지수 산출 지표 — 대표 관광지 기준, 요인별 감점
+            </p>
+            <div className="max-h-[360px] overflow-y-auto pr-1">
+              <RiskBreakdownBar factors={selected.factors} />
+            </div>
+          </div>
+        )}
+
         <div className="mt-5 flex flex-col gap-2">
           <Link
             href={hrefWith("/places", selected.sigunguCode)}
