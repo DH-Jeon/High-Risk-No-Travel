@@ -32,6 +32,8 @@ export interface KmaDailyWeather {
   rainMm?: number;
   /** 시간별 TMP×REH 쌍으로 계산한 일 최대 체감온도 ℃ (기상청 여름철 산식) */
   apparentTempC?: number;
+  /** 일조시간 대용(h) — 낮시간대 하늘상태(SKY) 평균을 환산. TCI 일조 축 입력. */
+  sunHours?: number;
 }
 
 /** KST 날짜(YYYYMMDD)와 자정 기준 경과 분 — 서버 타임존에 의존하지 않는다 */
@@ -167,6 +169,8 @@ export function summarizeDaily(
   // 체감온도용 시간별 TMP·REH 쌍 — TMX(일최고기온) 발생 시각의 REH는 알 수 없어 시간별 TMP 기반 근사다
   const tmpByTime = new Map<string, number>();
   const rehByTime = new Map<string, number>();
+  // 하늘상태(SKY: 1맑음·3구름많음·4흐림) — 일조(TCI) 대용, 낮시간대 평균으로 환산
+  const skyByTime = new Map<string, number>();
 
   for (const item of dayItems) {
     const n = Number(item.fcstValue);
@@ -188,6 +192,9 @@ export function summarizeDaily(
         break;
       case "WSD":
         if (Number.isFinite(n)) wsdMax = wsdMax === undefined ? n : Math.max(wsdMax, n);
+        break;
+      case "SKY":
+        if (Number.isFinite(n)) skyByTime.set(item.fcstTime, n);
         break;
       case "PCP": {
         // 하루 누적 강수량(합계) — 호우 특보 임계값이 누적 기준이라 최댓값보다 합계가 적합
@@ -212,6 +219,17 @@ export function summarizeDaily(
     }
   }
 
+  // 일조(TCI) 대용 — 낮시간대(09~18시) SKY 평균을 일조시간으로 환산.
+  // 맑음(1)→11h, 구름많음(3)→~4.3h, 흐림(4)→1h (선형). SKY 없으면 undefined → TCI가 4축 재정규화.
+  const daySky = [...skyByTime.entries()]
+    .filter(([t]) => t >= "0900" && t <= "1800")
+    .map(([, v]) => v);
+  let sunHours: number | undefined;
+  if (daySky.length > 0) {
+    const meanSky = daySky.reduce((a, b) => a + b, 0) / daySky.length;
+    sunHours = meanSky <= 1 ? 11 : meanSky >= 4 ? 1 : 11 - ((meanSky - 1) / 3) * 10;
+  }
+
   const weather: KmaDailyWeather = {};
   const tempC = tmx ?? tmpMax;
   if (tempC !== undefined) weather.tempC = tempC;
@@ -219,6 +237,7 @@ export function summarizeDaily(
   if (wsdMax !== undefined) weather.windMs = wsdMax;
   if (pcpSum !== undefined) weather.rainMm = Math.round(pcpSum * 10) / 10;
   if (apparentMax !== undefined) weather.apparentTempC = apparentMax;
+  if (sunHours !== undefined) weather.sunHours = Math.round(sunHours);
   return weather;
 }
 

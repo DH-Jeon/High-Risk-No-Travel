@@ -40,7 +40,7 @@ import { computeTciBreakdown } from "@/lib/safety/tci";
 export const OVERRIDE_CAP = 20;
 
 /** 쾌적층 요인 표시용 명목 상한 (레벨 색상 계산용, TCI 가중 기반) */
-const WEATHER_MAX = { thermal: 40, rain: 27, pm: 24, wind: 10 } as const;
+const WEATHER_MAX = { thermal: 40, rain: 27, pm: 24, wind: 10, sun: 9 } as const;
 
 export function computeSafetyScore(
   input: RiskInput,
@@ -62,7 +62,7 @@ export function computeSafetyScore(
     rainProbPct: input.rainProbPct,
     windMs: input.windMs,
     pm25: input.pm25,
-    // 일조(하늘상태)는 예보 파이프라인 확보 전까지 미입력 → TCI가 나머지로 재정규화
+    sunHours: input.sunHours, // 하늘상태(SKY) 환산 — 없으면 TCI가 4축 재정규화
   });
 
   // envType·프로필로 변조 (실내 할인·계곡 강수 가중·미먼 민감군)
@@ -86,6 +86,8 @@ export function computeSafetyScore(
   // 무너뜨리지 않게 바운드. 진짜 "가지마"는 재난경보(산사태·산불) override가 담당.
   const RAIN_WIND_MAX = 40;
   const rainWindPts = Math.min(RAIN_WIND_MAX, rainPts + windPts);
+  // 일조(하늘상태 SKY 환산) — 데이터 있을 때만 요인 추가. 야외 심미(실내 할인 env.heat).
+  const sunPts = Math.round(tb.deductions.sun * env.heat);
 
   const thermalNote =
     feelsBase >= 33 ? "무더위" : feelsBase <= 4 ? "추위" : feelsBase >= 28 ? "더움" : "쾌적";
@@ -129,7 +131,24 @@ export function computeSafetyScore(
     description: `PM2.5 ${input.pm25}㎍/㎥ — 환경부 '${pmGradeLabel(input.pm25)}' 등급${prof.pmSensitive ? " · 민감군 기준" : ""}`,
   });
 
-  const weatherRisk = thermalPts + rainWindPts + pmPts;
+  // 일조 요인 — SKY 데이터 있을 때만 표시(없으면 TCI 4축 재정규화라 감점 0)
+  if (input.sunHours !== undefined) {
+    factors.push({
+      key: "sun",
+      label: "일조",
+      value: input.sunHours,
+      unit: "h",
+      threshold: 5,
+      points: sunPts,
+      maxPoints: WEATHER_MAX.sun,
+      level: levelForPoints(sunPts, WEATHER_MAX.sun),
+      description: `낮 하늘상태 환산 일조 ${input.sunHours}시간 — ${
+        input.sunHours >= 8 ? "맑음" : input.sunHours >= 4 ? "구름많음" : "흐림"
+      } (관광기후지수)`,
+    });
+  }
+
+  const weatherRisk = thermalPts + rainWindPts + pmPts + sunPts;
 
   // ── 안전층: 산불 (산림청 단계) ──
   const fireLevel = normalizeForestFireLevel(input.forestFireLevel);
