@@ -9,7 +9,14 @@
  * 순수 함수 summarizeRegions는 테스트에서 직접 호출한다.
  */
 import type { Profile, RiskFactor, RiskLevel } from "@/lib/safety/types";
-import { gradeForScore } from "@/lib/safety/weights";
+import {
+  gradeForScore,
+  landslidePoints,
+  levelForPoints,
+  medicalPoints,
+  LANDSLIDE,
+  MEDICAL,
+} from "@/lib/safety/weights";
 import { SIGUNGU_SEATS } from "@/lib/risk/regions";
 import {
   getPlacesWithSafety,
@@ -68,17 +75,74 @@ export function summarizeRegions(places: PlaceWithSafety[]): RegionSummary[] {
       const scores = group.map((p) => p.safety.score).sort((a, b) => a - b);
       const medianScore = scores.length > 0 ? median(scores) : null;
       // 대표 관광지 = 중앙값에 점수가 가장 가까운 곳 → 그 요인 분해로 시군 점수를 설명
+      // 시군 대표 요인 분해 (팝업 "이 점수는 왜?")
+      // - 날씨(체감·강수·미먼)+산불: 대표 야외장소(실내 제외) 기준 = 시군 공통 날씨
+      // - 산사태: 시군 내 최고 위험 지형(worst-spot) — 산림청 시군 발령 개념
+      // - 응급의료: 시군 관광지 응급실거리 커버리지(골든타임 %+중앙값)
       let factors: RiskFactor[] = [];
       let sampleName: string | null = null;
-      if (medianScore !== null) {
-        const rep = group.reduce((best, p) =>
+      if (medianScore !== null && group.length > 0) {
+        // 날씨 기준 = 실내 할인 없는 야외장소 우선 (원주 실내 대표로 강수가 축소되는 왜곡 방지)
+        const general = group.filter((p) => p.envType === "outdoor_general");
+        const outdoor = group.filter((p) => p.envType !== "indoor");
+        const pool = general.length ? general : outdoor.length ? outdoor : group;
+        const rep = pool.reduce((best, p) =>
           Math.abs(p.safety.score - medianScore) <
           Math.abs(best.safety.score - medianScore)
             ? p
             : best,
         );
-        factors = rep.safety.factors;
         sampleName = rep.title ?? null;
+        // 날씨·산불은 대표 야외장소에서 (의료·산사태는 시군 집계로 대체)
+        factors = (rep.safety.factors ?? []).filter(
+          (f) => f.key !== "medical" && f.key !== "landslide",
+        );
+
+        // 산사태 = 시군 내 최고 위험 지형
+        const maxLs = Math.max(
+          0,
+          ...group.map(
+            (p) => p.safety.factors?.find((f) => f.key === "landslide")?.value ?? 0,
+          ),
+        );
+        if (maxLs > 0) {
+          const pts = Math.round(landslidePoints(maxLs));
+          factors.push({
+            key: "landslide",
+            label: "산사태",
+            value: maxLs,
+            unit: "단계",
+            threshold: 1,
+            points: pts,
+            maxPoints: LANDSLIDE.MAX_POINTS,
+            level: levelForPoints(pts, LANDSLIDE.MAX_POINTS),
+            description: `산사태 위험 ${LANDSLIDE.LEVEL_LABEL[maxLs as 0 | 1 | 2]} — 시군 내 최고 위험 지형(계곡·산악) 기준`,
+          });
+        }
+
+        // 응급의료 = 시군 커버리지 (골든타임 이내 비율 + 응급실 거리 중앙값)
+        const kms = group
+          .map((p) => p.safety.factors?.find((f) => f.key === "medical")?.value)
+          .filter((v): v is number => v !== undefined)
+          .sort((a, b) => a - b);
+        if (kms.length > 0) {
+          const medKm = median(kms);
+          const within = Math.round(
+            (kms.filter((k) => k <= MEDICAL.NEAR_KM).length / kms.length) * 100,
+          );
+          const pts = Math.round(medicalPoints(medKm));
+          factors.push({
+            key: "medical",
+            label: "응급의료",
+            value: medKm,
+            unit: "km",
+            threshold: MEDICAL.NEAR_KM,
+            points: pts,
+            maxPoints: MEDICAL.MAX_POINTS,
+            level: levelForPoints(pts, MEDICAL.MAX_POINTS),
+            description: `골든타임(${MEDICAL.NEAR_KM}km) 이내 관광지 ${within}% · 응급실 거리 중앙값 ${medKm}km`,
+          });
+        }
       }
       return {
         sigunguCode: code,
