@@ -36,6 +36,20 @@ describe("rainScore — 박창용(2014) 일값 규칙", () => {
   it("미제공(undefined)은 무강수로 5점", () => {
     expect(rainScore(undefined)).toBe(5);
   });
+
+  it("강수량 없어도 강수확률 높으면 감점 (비 예보 반영)", () => {
+    // "강수확률 80% + 강수없음"이 예보에 흔함 → 확률로 감점
+    expect(rainScore(undefined, 80)).toBe(2);
+    expect(rainScore(undefined, 60)).toBe(3);
+    expect(rainScore(undefined, 30)).toBe(4);
+    expect(rainScore(undefined, 10)).toBe(5); // 낮으면 감점 없음
+  });
+
+  it("강수량·강수확률 중 나쁜 쪽 반영", () => {
+    // 많은 비(5mm↑)면 확률 무관 최저점, 적은 비+높은 확률이면 확률이 지배
+    expect(rainScore(20, 30)).toBe(0);
+    expect(rainScore(1, 80)).toBe(2); // 강수량 4점 vs 확률 2점 → 2
+  });
 });
 
 describe("sunScore — 일조시간", () => {

@@ -41,14 +41,25 @@ export function thermalScore(feelsC: number): number {
 }
 
 /**
- * 강수 점수(0~5) — 일강수량(mm). 박창용(2014): 일 5mm↑=0, 0.5mm 줄 때마다 +0.5, <0.5mm=5.
- * (= 0.5≤mm<5 구간에서 5-mm)
+ * 강수 점수(0~5) — 강수량·강수확률 중 나쁜 쪽 반영.
+ * - 강수량(mm): 박창용(2014) 일값 규칙 — 5mm↑=0, 0.5mm 줄 때마다 +0.5, <0.5mm=5
+ * - 강수확률(%): 예보 강수량이 없어도(강수없음) 비 가능성이 높으면 감점 —
+ *   여행 계획 리스크 반영. 기상청 통용 구간(30/60/80%)을 점수로 역환산.
+ * 예보는 "강수확률 60% + 강수없음"이 흔해, 확률을 빼면 비 예보가 감점에 안 잡힌다.
  */
-export function rainScore(rainMmDaily: number | undefined): number {
+export function rainScore(
+  rainMmDaily: number | undefined,
+  rainProbPct?: number,
+): number {
   const r = rainMmDaily ?? 0;
-  if (r >= 5) return 0;
-  if (r < 0.5) return 5;
-  return 5 - r;
+  const byAmount = r >= 5 ? 0 : r < 0.5 ? 5 : 5 - r;
+  let byProb = 5;
+  if (rainProbPct !== undefined) {
+    if (rainProbPct >= 80) byProb = 2;
+    else if (rainProbPct >= 60) byProb = 3;
+    else if (rainProbPct >= 30) byProb = 4;
+  }
+  return Math.min(byAmount, byProb);
 }
 
 /**
@@ -90,6 +101,8 @@ export function pmScore(pm25: number): number {
 export interface TciInput {
   feelsC: number;
   rainMmDaily?: number;
+  /** 강수확률 % — 예보 강수량이 없어도 비 가능성이 높으면 강수 감점에 반영 */
+  rainProbPct?: number;
   windMs: number;
   pm25: number;
   sunHours?: number;
@@ -115,7 +128,7 @@ export const TCI_WEIGHTS = {
 export function computeTci(input: TciInput): number {
   const s = {
     thermal: thermalScore(input.feelsC),
-    rain: rainScore(input.rainMmDaily),
+    rain: rainScore(input.rainMmDaily, input.rainProbPct),
     pm: pmScore(input.pm25),
     wind: windScore(input.windMs),
     sun: input.sunHours !== undefined ? sunScore(input.sunHours) : undefined,
@@ -148,7 +161,7 @@ export interface TciBreakdown {
 export function computeTciBreakdown(input: TciInput): TciBreakdown {
   const raw: Record<keyof TciBreakdown["deductions"], number | undefined> = {
     thermal: thermalScore(input.feelsC),
-    rain: rainScore(input.rainMmDaily),
+    rain: rainScore(input.rainMmDaily, input.rainProbPct),
     pm: pmScore(input.pm25),
     wind: windScore(input.windMs),
     sun: input.sunHours !== undefined ? sunScore(input.sunHours) : undefined,

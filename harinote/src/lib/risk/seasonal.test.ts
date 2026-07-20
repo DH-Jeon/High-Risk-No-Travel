@@ -61,8 +61,8 @@ describe("seasonalRange", () => {
     const misan = places[0];
     const r = seasonalRange(misan, 7)!;
     // 여름 계곡: 통상일은 무난, 궂은날(호우)은 계곡 강수 가중+산사태로 방문 자제 수준
-    expect(r.typical.score).toBeGreaterThanOrEqual(66);
-    expect(r.typical.score).toBeLessThanOrEqual(78);
+    expect(r.typical.score).toBeGreaterThanOrEqual(56);
+    expect(r.typical.score).toBeLessThanOrEqual(72);
     expect(r.bad.score).toBeLessThan(r.typical.score - 20);
     expect(r.bad.score).toBeLessThanOrEqual(35);
   });
