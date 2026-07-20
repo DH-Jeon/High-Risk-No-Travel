@@ -59,6 +59,7 @@ export function computeSafetyScore(
   const tb = computeTciBreakdown({
     feelsC: feelsEff,
     rainMmDaily: input.rainMm,
+    rainProbPct: input.rainProbPct,
     windMs: input.windMs,
     pm25: input.pm25,
     // 일조(하늘상태)는 예보 파이프라인 확보 전까지 미입력 → TCI가 나머지로 재정규화
