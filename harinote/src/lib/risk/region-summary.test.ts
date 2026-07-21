@@ -57,22 +57,22 @@ describe("summarizeRegions", () => {
 
   it("시군 점수·분해 = 대표 야외 관광지 (점수와 분해가 같은 장소에서 옴)", () => {
     const result = summarizeRegions([
-      mockPlace(1, 76, { factors: [f("heat", 12), f("rain_wind", 8), f("pm", 4)] }),
+      mockPlace(1, 76, { factors: [f("heat", 12), f("rain", 8), f("pm", 4)] }),
     ]);
     const g = result.find((r) => r.sigunguCode === 1)!;
     expect(g.medianScore).toBe(76); // 대표 장소 점수 그대로
     expect(g.grade).toBe("low");
-    expect(g.factors.map((x) => x.key)).toEqual(["heat", "rain_wind", "pm"]);
+    expect(g.factors.map((x) => x.key)).toEqual(["heat", "rain", "pm"]);
   });
 
   it("실내 제외 야외장소를 대표로 (실내로 강수 축소 방지)", () => {
     const result = summarizeRegions([
-      mockPlace(1, 95, { factors: [f("rain_wind", 3)], envType: "indoor" }),
-      mockPlace(1, 60, { factors: [f("rain_wind", 27)], envType: "outdoor_general" }),
+      mockPlace(1, 95, { factors: [f("rain", 3)], envType: "indoor" }),
+      mockPlace(1, 60, { factors: [f("rain", 27)], envType: "outdoor_general" }),
     ]);
     const g = result.find((r) => r.sigunguCode === 1)!;
     expect(g.medianScore).toBe(60); // 야외장소 점수 (실내 95 아님)
-    expect(g.factors.find((x) => x.key === "rain_wind")!.points).toBe(27);
+    expect(g.factors.find((x) => x.key === "rain")!.points).toBe(27);
   });
 
   it("응급의료 설명에 시군 커버리지(골든타임 이내 %) 추가", () => {
@@ -84,5 +84,47 @@ describe("summarizeRegions", () => {
       .find((r) => r.sigunguCode === 1)!
       .factors.find((x) => x.key === "medical")!;
     expect(med.description).toContain("50%"); // 2곳 중 1곳만 골든타임 이내
+  });
+
+  it("응급의료 감점은 시군 중앙값 — 대표가 병원 근처여도 시군 편차 반영(편향 방지)", () => {
+    // 대표(병원 5km, 감점1)만 보면 안전해 보이나 시군엔 먼 곳(40km, 감점9)이 섞여 있다.
+    const g = summarizeRegions([
+      mockPlace(1, 90, { factors: [f("medical", 1, 5)], envType: "outdoor_general" }),
+      mockPlace(1, 82, { factors: [f("medical", 9, 40)], envType: "outdoor_general" }),
+    ]).find((r) => r.sigunguCode === 1)!;
+    const med = g.factors.find((x) => x.key === "medical")!;
+    expect(med.points).toBe(5); // 대표 1이 아니라 시군 중앙값 median([1,9])=5
+    expect(g.medianScore).toBe(86); // 대표 90 − (5−1) 집계 차이
+  });
+
+  it("산사태는 노출 비율×상한(15)으로 소폭 반영 + 최고단계는 landslideAlert 배지", () => {
+    const g = summarizeRegions([
+      mockPlace(1, 88, { factors: [f("heat", 12)], envType: "outdoor_general" }),
+      // 2곳 중 1곳(산악지)만 주의보(value=1) → 노출 50%
+      mockPlace(1, 40, { factors: [f("landslide", 45, 1)], envType: "outdoor_mountain" }),
+    ]).find((r) => r.sigunguCode === 1)!;
+    const ls = g.factors.find((x) => x.key === "landslide")!;
+    expect(ls.points).toBe(8); // 노출 50%×15=7.5→8 (최악 45를 헤드라인에 박지 않음)
+    expect(ls.value).toBe(50);
+    expect(ls.description).toContain("50%");
+    expect(g.medianScore).toBe(80); // 대표 88 − 시군 산사태 8
+    expect(g.landslideAlert).toBe(1); // 최고 단계는 배지로
+  });
+
+  it("경보(value=2)는 주의보보다 2배 가중 → 감점 더 큼", () => {
+    // 안전한 일반지 1곳을 섞어 비포화 상태로 — 그래야 2배 가중 차이가 드러남
+    const watch = summarizeRegions([
+      mockPlace(2, 90, { factors: [f("landslide", 45, 1)], envType: "outdoor_mountain" }),
+      mockPlace(2, 90, { factors: [], envType: "outdoor_general" }),
+    ]).find((r) => r.sigunguCode === 2)!;
+    const warn = summarizeRegions([
+      mockPlace(2, 90, { factors: [f("landslide", 80, 2)], envType: "outdoor_mountain" }),
+      mockPlace(2, 90, { factors: [], envType: "outdoor_general" }),
+    ]).find((r) => r.sigunguCode === 2)!;
+    const wp = warn.factors.find((x) => x.key === "landslide")!.points;
+    const cp = watch.factors.find((x) => x.key === "landslide")!.points;
+    expect(cp).toBe(8); // 노출 50%(주의보)×15 = 7.5→8
+    expect(wp).toBe(15); // 경보 ×2 → 노출 100%×15 = 15
+    expect(wp).toBeGreaterThan(cp);
   });
 });

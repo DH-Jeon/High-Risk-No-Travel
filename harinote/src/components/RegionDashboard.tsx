@@ -24,8 +24,8 @@ export default function RegionDashboard({
   const [selectedCode, setSelectedCode] = useState<number | null>(null);
 
   return (
-    <div className="grid gap-4 lg:grid-cols-5">
-      <div className="lg:col-span-3">
+    <div className="grid gap-4 lg:grid-cols-9">
+      <div className="lg:col-span-5">
         <RegionRiskMap
           regions={regions}
           selectedCode={selectedCode}
@@ -61,14 +61,16 @@ export default function RegionDashboard({
           .
         </p>
       </div>
-      <RegionPanel
-        regions={regions}
-        selectedCode={selectedCode}
-        onSelect={setSelectedCode}
-        onClear={() => setSelectedCode(null)}
-        dateLabel={dateLabel}
-        extraQuery={extraQuery}
-      />
+      <div className="lg:col-span-4">
+        <RegionPanel
+          regions={regions}
+          selectedCode={selectedCode}
+          onSelect={setSelectedCode}
+          onClear={() => setSelectedCode(null)}
+          dateLabel={dateLabel}
+          extraQuery={extraQuery}
+        />
+      </div>
     </div>
   );
 }

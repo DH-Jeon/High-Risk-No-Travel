@@ -1,9 +1,9 @@
 /**
  * 안전 점수 엔진 테스트 — 쾌적층(TCI) − 안전층 모델.
- * SafetyScore = TCI(체감·강수·미먼·바람) − 안전(산불·산사태·의료) − 이동, 재난경보 override.
+ * SafetyScore = TCI(체감·강수·미먼·바람) − 안전(산불·산사태·의료) − 이동. 재난경보급은 감점 앵커로 총점 보장.
  */
 import { describe, expect, it } from "vitest";
-import { computeSafetyScore, OVERRIDE_CAP } from "@/lib/safety/score";
+import { computeSafetyScore, ALERT_BAND_CAP } from "@/lib/safety/score";
 import { gradeForScore } from "@/lib/safety/weights";
 import type {
   Profile,
@@ -46,7 +46,7 @@ describe("computeSafetyScore — 기본/구조", () => {
 
   it("체감온도/강수·바람/미세먼지/산불/응급의료 요인은 항상 포함", () => {
     const keys = run({}).factors.map((f) => f.key);
-    for (const k of ["heat", "rain_wind", "pm", "forest_fire", "medical"]) {
+    for (const k of ["heat", "rain", "wind", "pm", "forest_fire", "medical"]) {
       expect(keys).toContain(k);
     }
   });
@@ -93,10 +93,27 @@ describe("쾌적층(TCI) — 계절 패턴", () => {
     expect(indoor.score).toBeGreaterThan(outdoor.score);
   });
 
-  it("계곡(outdoor_water)은 비 올 때 강수·바람 감점 크다(강수 ×1.5)", () => {
-    const general = factor(run({ rainMm: 20, rainProbPct: 80 }), "rain_wind").points;
-    const water = factor(run({ rainMm: 20, rainProbPct: 80 }, "outdoor_water"), "rain_wind").points;
+  it("계곡(outdoor_water)은 비 올 때 강수 감점 크다(강수 ×1.5)", () => {
+    const general = factor(run({ rainMm: 20, rainProbPct: 80 }), "rain").points;
+    const water = factor(run({ rainMm: 20, rainProbPct: 80 }, "outdoor_water"), "rain").points;
     expect(water).toBeGreaterThan(general);
+  });
+
+  it("강수·바람은 별개 요인(KTCI 가중 분리) — rain_wind 합쳐진 요인 없음", () => {
+    const keys = run({ rainProbPct: 80, windMs: 12 }).factors.map((f) => f.key);
+    expect(keys).toContain("rain");
+    expect(keys).toContain("wind");
+    expect(keys).not.toContain("rain_wind");
+  });
+
+  it("흐린 날 일조 감점은 강수확률 높으면 완화(이중 페널티 방지)", () => {
+    // 흐림(sunHours 1) 고정, 강수확률만 달리 — 낮으면 감점 유지, 높으면 0
+    const dry = factor(run({ sunHours: 1, rainProbPct: 10 }), "sun").points;
+    const mid = factor(run({ sunHours: 1, rainProbPct: 45 }), "sun").points;
+    const wet = factor(run({ sunHours: 1, rainProbPct: 80 }), "sun").points;
+    expect(dry).toBeGreaterThan(0); // 비 안 오는 흐림 → 일조 감점 유효
+    expect(mid).toBeLessThan(dry); // 30~59% → 절반
+    expect(wet).toBe(0); // ≥60% → 강수 축이 담당, 일조 중복 제거
   });
 
   it("미세먼지 매우나쁨은 pm 감점, 민감층(with_kids)은 더 크다", () => {
@@ -131,6 +148,17 @@ describe("안전층 — 산불·산사태·응급의료", () => {
     expect(run({ landslideLevel: 2 }, "outdoor_mountain").factors.some((f) => f.key === "landslide")).toBe(true);
   });
 
+  it("호우(침수·급류)는 안전층 별도 요인 — rainMm<30 없음, 호우급은 발생하고 disasterRisk에 포함", () => {
+    expect(run({ rainMm: 10 }).factors.some((f) => f.key === "heavy_rain")).toBe(false);
+    const heavy = run({ rainMm: 95, rainProbPct: 90 });
+    const hr = heavy.factors.find((f) => f.key === "heavy_rain");
+    expect(hr).toBeDefined();
+    expect(hr!.points).toBeGreaterThan(0);
+    // 쾌적(weather) 아닌 안전(disaster) 층으로 집계되는지
+    expect(heavy.disasterRisk).toBeGreaterThanOrEqual(hr!.points);
+    expect(factor(heavy, "rain").points).toBeLessThanOrEqual(30); // 쾌적 강수 상한
+  });
+
   it("응급의료 30km↑는 상한 10, with_seniors는 default보다 크다", () => {
     expect(factor(run({ emergencyRoomKm: 35 }), "medical").points).toBe(10);
     const base = factor(run({ emergencyRoomKm: 20 }), "medical").points;
@@ -145,26 +173,26 @@ describe("안전층 — 산불·산사태·응급의료", () => {
   });
 });
 
-describe("재난 경보 override — 총점 강제 하향", () => {
-  it("산불 4단계(심각)는 다른 조건 무관하게 총점 ≤ OVERRIDE_CAP", () => {
+describe("재난 경보급 — 감점 앵커로 총점 보장(별도 override 아님)", () => {
+  it("산불 4단계(심각)는 다른 조건 무관하게 총점 ≤ ALERT_BAND_CAP", () => {
     const b = run({ tempC: 21, forestFireLevel: 4 }, "outdoor_mountain");
-    expect(b.score).toBeLessThanOrEqual(OVERRIDE_CAP);
+    expect(b.score).toBeLessThanOrEqual(ALERT_BAND_CAP);
     expect(b.grade).toBe("high");
   });
 
-  it("산사태 경보(2)는 총점 ≤ OVERRIDE_CAP", () => {
+  it("산사태 경보(2)는 총점 ≤ ALERT_BAND_CAP", () => {
     const b = run({ landslideLevel: 2 }, "outdoor_mountain");
-    expect(b.score).toBeLessThanOrEqual(OVERRIDE_CAP);
+    expect(b.score).toBeLessThanOrEqual(ALERT_BAND_CAP);
   });
 
-  it("호우로 산악 프록시 경보(2)면 override — 폭우 계곡은 방문 자제 수준", () => {
+  it("호우로 산악 프록시 경보(2)면 폭우 계곡은 방문 자제 수준", () => {
     const b = run({ rainMm: 90, rainProbPct: 90 }, "outdoor_mountain");
-    expect(b.score).toBeLessThanOrEqual(OVERRIDE_CAP);
+    expect(b.score).toBeLessThanOrEqual(ALERT_BAND_CAP);
   });
 
-  it("주의보급(산불 3·산사태 1)은 override 아님 — 감점만", () => {
+  it("주의보급(산불 3·산사태 1)은 밴드 밖 — 감점만", () => {
     const b = run({ forestFireLevel: 3 });
-    expect(b.score).toBeGreaterThan(OVERRIDE_CAP);
+    expect(b.score).toBeGreaterThan(ALERT_BAND_CAP);
   });
 });
 
@@ -184,7 +212,7 @@ describe("shelter / road — 선택 입력", () => {
 });
 
 describe("점수 일관성 / 등급", () => {
-  // override가 걸리지 않는 케이스들 (산불<4, 산사태<2)
+  // 재난 경보급 밴드에 안 드는 케이스들 (산불<4, 산사태<2)
   const cases: Array<[Partial<RiskInput>, PlaceEnvType, Profile]> = [
     [{}, "indoor", "default"],
     [{ tempC: 33, pm25: 50 }, "outdoor_general", "with_kids"],
@@ -192,7 +220,7 @@ describe("점수 일관성 / 등급", () => {
     [{ forestFireLevel: 3, windMs: 10 }, "outdoor_mountain", "with_seniors"],
   ];
 
-  it("override 없는 경우 score = 100 − 요인 감점 합, 소계 합 일치", () => {
+  it("score = 100 − 요인 감점 합, 소계 합 일치 (항상)", () => {
     for (const [input, env, profile] of cases) {
       const b = run(input, env, profile);
       const total = b.factors.reduce((s, f) => s + f.points, 0);
@@ -212,8 +240,8 @@ describe("점수 일관성 / 등급", () => {
     );
     const sum = (keys: RiskFactorKey[]) =>
       b.factors.filter((f) => keys.includes(f.key)).reduce((s, f) => s + f.points, 0);
-    expect(b.weatherRisk).toBe(sum(["heat", "rain_wind", "pm"]));
-    expect(b.disasterRisk).toBe(sum(["forest_fire", "landslide", "shelter"]));
+    expect(b.weatherRisk).toBe(sum(["heat", "rain", "wind", "pm", "sun"]));
+    expect(b.disasterRisk).toBe(sum(["heavy_rain", "forest_fire", "landslide", "shelter"]));
     expect(b.medicalRisk).toBe(sum(["medical"]));
     expect(b.mobilityRisk).toBe(sum(["road"]));
   });
