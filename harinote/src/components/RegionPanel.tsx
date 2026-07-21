@@ -6,6 +6,9 @@ import { GRADE_LABEL } from "@/lib/safety/types";
 import SafetyScoreBadge from "@/components/SafetyScoreBadge";
 import RiskBreakdownBar from "@/components/RiskBreakdownBar";
 
+/** 산사태 경고 단계 라벨 (0 없음 · 1 주의보 · 2 경보) */
+const LANDSLIDE_ALERT_LABEL = ["", "주의보", "경보"] as const;
+
 interface RegionPanelProps {
   regions: RegionSummary[];
   selectedCode: number | null;
@@ -74,6 +77,14 @@ export default function RegionPanel({
           </strong>
         </p>
 
+        {selected.landslideAlert > 0 && (
+          <div className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold leading-relaxed text-amber-800 ring-1 ring-amber-200">
+            ⚠️ 이 시군 산악·급경사지에 산사태{" "}
+            {LANDSLIDE_ALERT_LABEL[selected.landslideAlert]} — 산지·계곡 방문 시
+            주의하세요 (대표 점수엔 미반영)
+          </div>
+        )}
+
         {/* 왜 이 점수인가 — 안전지수 산출 지표 시각화 (대표 관광지 기준) */}
         {selected.factors.length > 0 && (
           <div className="mt-4 border-t border-slate-100 pt-4">
@@ -81,9 +92,9 @@ export default function RegionPanel({
               이 점수는 왜?
             </p>
             <p className="mb-3 text-xs text-slate-400">
-              날씨는 시군 야외 기준
-              {selected.sampleName ? `(${selected.sampleName})` : ""} · 응급의료·산사태는
-              시군 전체 집계
+              날씨·산불·산사태는 시군 대표 야외지
+              {selected.sampleName ? `(${selected.sampleName})` : ""} 기준 · 응급의료는
+              시군 중앙값
             </p>
             <RiskBreakdownBar factors={selected.factors} compact />
           </div>
@@ -114,17 +125,28 @@ export default function RegionPanel({
         onClick={() => onSelect(region.sigunguCode)}
         className="flex w-full items-center justify-between gap-2 px-5 py-2.5 text-left transition-colors hover:bg-teal-50/60"
       >
-        <span className="text-sm font-semibold text-slate-700">
+        <span className="min-w-0 truncate text-sm font-semibold text-slate-700">
           {region.name}
           <span className="ml-2 text-xs font-normal text-slate-400">
             관광지 {region.placeCount}곳
           </span>
         </span>
-        {region.medianScore !== null && region.grade !== null ? (
-          <SafetyScoreBadge score={region.medianScore} grade={region.grade} />
-        ) : (
-          <span className="text-xs font-semibold text-slate-400">데이터 없음</span>
-        )}
+        <span className="flex shrink-0 items-center gap-1.5">
+          {region.landslideAlert > 0 && (
+            <span
+              className="text-sm text-amber-500"
+              title={`산악지 산사태 ${LANDSLIDE_ALERT_LABEL[region.landslideAlert]}`}
+              aria-label={`산악지 산사태 ${LANDSLIDE_ALERT_LABEL[region.landslideAlert]} 주의`}
+            >
+              ⚠️
+            </span>
+          )}
+          {region.medianScore !== null && region.grade !== null ? (
+            <SafetyScoreBadge score={region.medianScore} grade={region.grade} />
+          ) : (
+            <span className="text-xs font-semibold text-slate-400">데이터 없음</span>
+          )}
+        </span>
       </button>
     </li>
   );
