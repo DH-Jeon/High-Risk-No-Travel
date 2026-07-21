@@ -5,7 +5,8 @@
  * - 쾌적층: 관광기후지수(K-TCI/KTCI) — 체감온도·강수·미세먼지·바람. envType(실내 할인·
  *   계곡 강수 가중)·프로필(민감층)로 변조. 근거=tci.ts, analysis/23.
  * - 안전층: 산불·산사태(산림청 단계) + 응급의료 접근성(취약성). FEMA/지역안전지수 구조.
- * - override: 재난 경보급(산불 4단계·산사태 경보) → 총점을 OVERRIDE_CAP 이하로 강제.
+ * - 재난 경보급(산불 4단계·산사태 경보): 감점(80)이 등급컷에 앵커돼 총점이 ALERT_BAND_CAP
+ *   이하로 보장된다 — 별도 override 로직이 아니라 앵커 설계의 결과. 점수=100−감점 합(항상 일치).
  *   근거=기상청 관광기후지수 '특보발령주의' 등급 + 특보 2단계(경보=이동 자제).
  */
 import type { Place } from "@/lib/tour/types";
@@ -36,8 +37,9 @@ import {
 } from "@/lib/safety/weights";
 import { computeTciBreakdown } from "@/lib/safety/tci";
 
-/** 재난 경보급이면 총점을 이 값 이하로 강제 (기상청 '특보발령주의' 밴드) */
-export const OVERRIDE_CAP = 20;
+/** 재난 경보급(산불4·산사태2)일 때 감점 앵커(80)로 보장되는 총점 상한 — 강제(override)가
+ * 아니라 앵커 설계의 결과다. 불변식·테스트 참조용. (기상청 '특보발령주의' 밴드) */
+export const ALERT_BAND_CAP = 20;
 
 /** 쾌적층 요인 표시용 명목 상한 (레벨 색상 계산용, TCI 가중 기반) */
 const WEATHER_MAX = { thermal: 40, rain: 27, pm: 24, wind: 10, sun: 9 } as const;
@@ -83,7 +85,7 @@ export function computeSafetyScore(
   const windPts = Math.round(tb.deductions.wind * env.wind);
   const pmPts = Math.round(tb.deductions.pm * env.pm * (prof.pmSensitive ? 1.4 : 1));
   // 강수·바람 합 상한 (원래 엔진의 강수·강풍 상한 복원) — 날씨 하나가 점수를 통째로
-  // 무너뜨리지 않게 바운드. 진짜 "가지마"는 재난경보(산사태·산불) override가 담당.
+  // 무너뜨리지 않게 바운드. 진짜 "가지마"는 재난경보(산사태·산불) 감점 앵커가 담당.
   const RAIN_WIND_MAX = 40;
   const rainWindPts = Math.min(RAIN_WIND_MAX, rainPts + windPts);
   // 일조(하늘상태 SKY 환산) — 데이터 있을 때만 요인 추가. 야외 심미(실내 할인 env.heat).

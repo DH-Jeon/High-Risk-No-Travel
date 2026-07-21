@@ -1,9 +1,9 @@
 /**
  * 안전 점수 엔진 테스트 — 쾌적층(TCI) − 안전층 모델.
- * SafetyScore = TCI(체감·강수·미먼·바람) − 안전(산불·산사태·의료) − 이동, 재난경보 override.
+ * SafetyScore = TCI(체감·강수·미먼·바람) − 안전(산불·산사태·의료) − 이동. 재난경보급은 감점 앵커로 총점 보장.
  */
 import { describe, expect, it } from "vitest";
-import { computeSafetyScore, OVERRIDE_CAP } from "@/lib/safety/score";
+import { computeSafetyScore, ALERT_BAND_CAP } from "@/lib/safety/score";
 import { gradeForScore } from "@/lib/safety/weights";
 import type {
   Profile,
@@ -145,26 +145,26 @@ describe("안전층 — 산불·산사태·응급의료", () => {
   });
 });
 
-describe("재난 경보 override — 총점 강제 하향", () => {
-  it("산불 4단계(심각)는 다른 조건 무관하게 총점 ≤ OVERRIDE_CAP", () => {
+describe("재난 경보급 — 감점 앵커로 총점 보장(별도 override 아님)", () => {
+  it("산불 4단계(심각)는 다른 조건 무관하게 총점 ≤ ALERT_BAND_CAP", () => {
     const b = run({ tempC: 21, forestFireLevel: 4 }, "outdoor_mountain");
-    expect(b.score).toBeLessThanOrEqual(OVERRIDE_CAP);
+    expect(b.score).toBeLessThanOrEqual(ALERT_BAND_CAP);
     expect(b.grade).toBe("high");
   });
 
-  it("산사태 경보(2)는 총점 ≤ OVERRIDE_CAP", () => {
+  it("산사태 경보(2)는 총점 ≤ ALERT_BAND_CAP", () => {
     const b = run({ landslideLevel: 2 }, "outdoor_mountain");
-    expect(b.score).toBeLessThanOrEqual(OVERRIDE_CAP);
+    expect(b.score).toBeLessThanOrEqual(ALERT_BAND_CAP);
   });
 
-  it("호우로 산악 프록시 경보(2)면 override — 폭우 계곡은 방문 자제 수준", () => {
+  it("호우로 산악 프록시 경보(2)면 폭우 계곡은 방문 자제 수준", () => {
     const b = run({ rainMm: 90, rainProbPct: 90 }, "outdoor_mountain");
-    expect(b.score).toBeLessThanOrEqual(OVERRIDE_CAP);
+    expect(b.score).toBeLessThanOrEqual(ALERT_BAND_CAP);
   });
 
-  it("주의보급(산불 3·산사태 1)은 override 아님 — 감점만", () => {
+  it("주의보급(산불 3·산사태 1)은 밴드 밖 — 감점만", () => {
     const b = run({ forestFireLevel: 3 });
-    expect(b.score).toBeGreaterThan(OVERRIDE_CAP);
+    expect(b.score).toBeGreaterThan(ALERT_BAND_CAP);
   });
 });
 
@@ -184,7 +184,7 @@ describe("shelter / road — 선택 입력", () => {
 });
 
 describe("점수 일관성 / 등급", () => {
-  // override가 걸리지 않는 케이스들 (산불<4, 산사태<2)
+  // 재난 경보급 밴드에 안 드는 케이스들 (산불<4, 산사태<2)
   const cases: Array<[Partial<RiskInput>, PlaceEnvType, Profile]> = [
     [{}, "indoor", "default"],
     [{ tempC: 33, pm25: 50 }, "outdoor_general", "with_kids"],
@@ -192,7 +192,7 @@ describe("점수 일관성 / 등급", () => {
     [{ forestFireLevel: 3, windMs: 10 }, "outdoor_mountain", "with_seniors"],
   ];
 
-  it("override 없는 경우 score = 100 − 요인 감점 합, 소계 합 일치", () => {
+  it("score = 100 − 요인 감점 합, 소계 합 일치 (항상)", () => {
     for (const [input, env, profile] of cases) {
       const b = run(input, env, profile);
       const total = b.factors.reduce((s, f) => s + f.points, 0);
