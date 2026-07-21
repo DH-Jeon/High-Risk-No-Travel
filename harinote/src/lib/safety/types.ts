@@ -59,9 +59,11 @@ export interface RiskInput {
 export type RiskFactorKey =
   | "heat" // 폭염
   | "cold" // 한파 (계절 모드 전용 — 30년 기후 시나리오에서만 계산)
-  | "rain_wind" // 강수·강풍
+  | "rain" // 강수 (관광기후지수 강수 축, 쾌적)
+  | "wind" // 바람 (관광기후지수 풍속 축, 쾌적)
   | "sun" // 일조 (하늘상태 SKY 환산 — TCI 일조 축)
   | "pm" // 미세먼지
+  | "heavy_rain" // 호우 침수·급류 (기상청 호우 특보 severity, 안전층)
   | "forest_fire" // 산불
   | "landslide" // 산사태 (강우×지형 프록시 + 산림청 예보발령 override)
   | "medical" // 응급의료 접근성

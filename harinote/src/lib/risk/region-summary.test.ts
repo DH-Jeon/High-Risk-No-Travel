@@ -57,22 +57,22 @@ describe("summarizeRegions", () => {
 
   it("시군 점수·분해 = 대표 야외 관광지 (점수와 분해가 같은 장소에서 옴)", () => {
     const result = summarizeRegions([
-      mockPlace(1, 76, { factors: [f("heat", 12), f("rain_wind", 8), f("pm", 4)] }),
+      mockPlace(1, 76, { factors: [f("heat", 12), f("rain", 8), f("pm", 4)] }),
     ]);
     const g = result.find((r) => r.sigunguCode === 1)!;
     expect(g.medianScore).toBe(76); // 대표 장소 점수 그대로
     expect(g.grade).toBe("low");
-    expect(g.factors.map((x) => x.key)).toEqual(["heat", "rain_wind", "pm"]);
+    expect(g.factors.map((x) => x.key)).toEqual(["heat", "rain", "pm"]);
   });
 
   it("실내 제외 야외장소를 대표로 (실내로 강수 축소 방지)", () => {
     const result = summarizeRegions([
-      mockPlace(1, 95, { factors: [f("rain_wind", 3)], envType: "indoor" }),
-      mockPlace(1, 60, { factors: [f("rain_wind", 27)], envType: "outdoor_general" }),
+      mockPlace(1, 95, { factors: [f("rain", 3)], envType: "indoor" }),
+      mockPlace(1, 60, { factors: [f("rain", 27)], envType: "outdoor_general" }),
     ]);
     const g = result.find((r) => r.sigunguCode === 1)!;
     expect(g.medianScore).toBe(60); // 야외장소 점수 (실내 95 아님)
-    expect(g.factors.find((x) => x.key === "rain_wind")!.points).toBe(27);
+    expect(g.factors.find((x) => x.key === "rain")!.points).toBe(27);
   });
 
   it("응급의료 설명에 시군 커버리지(골든타임 이내 %) 추가", () => {
