@@ -9,7 +9,7 @@
  * 순수 함수 summarizeRegions는 테스트에서 직접 호출한다.
  */
 import type { Profile, RiskFactor, RiskLevel } from "@/lib/safety/types";
-import { gradeForScore, MEDICAL } from "@/lib/safety/weights";
+import { gradeForScore, levelForPoints, MEDICAL } from "@/lib/safety/weights";
 import { SIGUNGU_SEATS } from "@/lib/risk/regions";
 import {
   getPlacesWithSafety,
@@ -24,17 +24,16 @@ export interface RegionSummary {
   lat: number;
   lng: number;
   /**
-   * 시군 대표 안전점수 = 대표 야외 관광지(중앙값 최근접)의 점수.
-   * factors도 같은 장소에서 와서 점수와 분해가 항상 일치한다. 0곳이면 null.
+   * 시군 대표 안전점수 = 대표 야외 관광지(중앙값 최근접) 점수에서, 장소 편차가 큰
+   * 응급의료(시군 중앙값)·산사태(시군 최악)만 시군 집계로 보정한 값. 0곳이면 null.
    */
   medianScore: number | null;
   /** 대표 점수의 등급(gradeForScore) — 관광지 0곳이면 null */
   grade: RiskLevel | null;
   placeCount: number;
   /**
-   * 중앙값에 가장 가까운 대표 관광지의 요인 분해 — "이 점수가 왜 나왔나"를
-   * 안전지수 산출식 지표(체감온도·강수·미먼·산불·산사태·응급의료)로 설명. 0곳이면 [].
-   * 날씨 요인은 시군 대표점 공유이나 의료·산불은 이 대표 장소값이라 sampleName으로 명시.
+   * "이 점수가 왜 나왔나" 요인 분해 — 날씨·산불은 대표 관광지(sampleName) 값,
+   * 응급의료·산사태는 시군 집계값. 0곳이면 []. 점수(medianScore)=요인 감점 합 유지.
    */
   factors: RiskFactor[];
   /** factors의 출처가 된 대표 관광지 이름 (없으면 null) */
@@ -70,10 +69,11 @@ export function summarizeRegions(places: PlaceWithSafety[]): RegionSummary[] {
       const group = placesByCode.get(code) ?? [];
       const scores = group.map((p) => p.safety.score).sort((a, b) => a - b);
 
-      // 시군 대표 = 실내 제외 야외장소 중 점수가 중앙값에 가장 가까운 곳.
-      // 표시 점수·요인 분해를 모두 이 한 장소에서 가져와 항상 일치시킨다 —
-      // 실내 대표로 강수가 축소되던 왜곡을 막고, 서로 다른 집계를 합쳐 점수가
-      // 틀어지던 문제도 없앤다. 응급의료 커버리지는 점수 아닌 설명에만 덧붙인다.
+      // 시군 대표 = 실내 제외 야외장소 중 점수가 중앙값에 가장 가까운 곳(medoid).
+      // 검증1 하이브리드(da-methodologist): 장소마다 다른 쾌적(날씨)·산불은 대표 장소값을
+      // 쓰되, 장소별 편차가 큰 응급의료(시군 중앙값)·산사태(시군 최악 노출)는 시군 집계로
+      // 대체한다 — 대표 1곳이 우연히 병원 근처라 시군이 안전해 보이는 편향을 막는다.
+      // 점수는 대표 점수에서 이 두 요인의 집계 차이만 반영(delta)하므로 점수=요인 감점 합 유지.
       let medianScore: number | null = null;
       let grade: RiskLevel | null = null;
       let factors: RiskFactor[] = [];
@@ -88,29 +88,67 @@ export function summarizeRegions(places: PlaceWithSafety[]): RegionSummary[] {
             ? p
             : best,
         );
-        medianScore = rep.safety.score;
-        grade = gradeForScore(medianScore);
+        const repFactors = rep.safety.factors ?? [];
         sampleName = rep.title ?? null;
 
-        // 시군 응급의료 커버리지(골든타임 이내 관광지 비율) — 감점은 대표 장소값 그대로,
-        // 설명에만 "곳곳에 잘 퍼졌나" 시군 맥락을 덧붙인다.
-        const kms = group
+        // 응급의료 — 시군 관광지 감점의 중앙값(대표 1곳 대신) + 골든타임 커버리지(%).
+        const medPts = group
+          .map((p) => p.safety.factors?.find((f) => f.key === "medical")?.points)
+          .filter((v): v is number => v !== undefined)
+          .sort((a, b) => a - b);
+        const medKms = group
           .map((p) => p.safety.factors?.find((f) => f.key === "medical")?.value)
-          .filter((v): v is number => v !== undefined);
+          .filter((v): v is number => v !== undefined)
+          .sort((a, b) => a - b);
+        const repMedical = repFactors.find((f) => f.key === "medical");
+        const newMedPts = medPts.length ? median(medPts) : (repMedical?.points ?? 0);
+        const newMedKm = medKms.length ? median(medKms) : (repMedical?.value ?? 0);
         const within =
-          kms.length > 0
+          medKms.length > 0
             ? Math.round(
-                (kms.filter((k) => k <= MEDICAL.NEAR_KM).length / kms.length) * 100,
+                (medKms.filter((k) => k <= MEDICAL.NEAR_KM).length / medKms.length) * 100,
               )
             : null;
-        factors = (rep.safety.factors ?? []).map((f) =>
-          f.key === "medical" && within !== null
-            ? {
-                ...f,
-                description: `${f.description} · 시군 관광지 ${within}%가 골든타임(${MEDICAL.NEAR_KM}km) 이내`,
-              }
-            : f,
-        );
+
+        // 산사태 — 시군 내 최악 노출지(프록시 최댓값). 맑은 날엔 전부 0이라 무변화.
+        let worstLs: RiskFactor | undefined;
+        for (const p of group) {
+          const lf = p.safety.factors?.find((f) => f.key === "landslide");
+          if (lf && (!worstLs || lf.points > worstLs.points)) worstLs = lf;
+        }
+
+        // 점수 = 대표 점수 − (의료·산사태 집계 차이). 100−요인 감점 합과 항상 일치.
+        const repLandslide = repFactors.find((f) => f.key === "landslide");
+        const delta =
+          newMedPts - (repMedical?.points ?? 0) +
+          ((worstLs?.points ?? 0) - (repLandslide?.points ?? 0));
+        medianScore = Math.max(0, Math.min(100, rep.safety.score - delta));
+        grade = gradeForScore(medianScore);
+
+        // 요인 분해 — 산불·날씨는 대표값 유지, 의료·산사태는 시군 집계로 교체.
+        factors = repFactors
+          .filter((f) => f.key !== "landslide")
+          .map((f) =>
+            f.key === "medical"
+              ? {
+                  ...f,
+                  value: newMedKm,
+                  points: newMedPts,
+                  level: levelForPoints(newMedPts, MEDICAL.MAX_POINTS),
+                  description: `최근접 응급의료기관 시군 중앙값 ${newMedKm}km${
+                    within !== null
+                      ? ` · 관광지 ${within}%가 골든타임(${MEDICAL.NEAR_KM}km) 이내`
+                      : ""
+                  }`,
+                }
+              : f,
+          );
+        if (worstLs) {
+          factors.push({
+            ...worstLs,
+            description: `${worstLs.description} · 시군 내 산사태 위험지역 포함`,
+          });
+        }
       }
       return {
         sigunguCode: code,

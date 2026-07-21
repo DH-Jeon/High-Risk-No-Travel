@@ -85,4 +85,26 @@ describe("summarizeRegions", () => {
       .factors.find((x) => x.key === "medical")!;
     expect(med.description).toContain("50%"); // 2곳 중 1곳만 골든타임 이내
   });
+
+  it("응급의료 감점은 시군 중앙값 — 대표가 병원 근처여도 시군 편차 반영(편향 방지)", () => {
+    // 대표(병원 5km, 감점1)만 보면 안전해 보이나 시군엔 먼 곳(40km, 감점9)이 섞여 있다.
+    const g = summarizeRegions([
+      mockPlace(1, 90, { factors: [f("medical", 1, 5)], envType: "outdoor_general" }),
+      mockPlace(1, 82, { factors: [f("medical", 9, 40)], envType: "outdoor_general" }),
+    ]).find((r) => r.sigunguCode === 1)!;
+    const med = g.factors.find((x) => x.key === "medical")!;
+    expect(med.points).toBe(5); // 대표 1이 아니라 시군 중앙값 median([1,9])=5
+    expect(g.medianScore).toBe(86); // 대표 90 − (5−1) 집계 차이
+  });
+
+  it("산사태는 시군 최악 노출지(프록시 최댓값) — 대표(일반)엔 없어도 산악지 위험 포함", () => {
+    const g = summarizeRegions([
+      mockPlace(1, 88, { factors: [f("heat", 12)], envType: "outdoor_general" }),
+      mockPlace(1, 40, { factors: [f("landslide", 45)], envType: "outdoor_mountain" }),
+    ]).find((r) => r.sigunguCode === 1)!;
+    const ls = g.factors.find((x) => x.key === "landslide");
+    expect(ls?.points).toBe(45); // 대표(일반, 산사태 없음) 아니라 시군 산악지 45
+    expect(ls?.description).toContain("산사태 위험지역 포함");
+    expect(g.medianScore).toBe(43); // 대표 88 − 시군 산사태 45
+  });
 });
