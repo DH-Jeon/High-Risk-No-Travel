@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { RegionSummary } from "@/lib/risk/region-summary";
 import { GRADE_LABEL } from "@/lib/safety/types";
 import SafetyScoreBadge from "@/components/SafetyScoreBadge";
+import RiskBreakdownBar from "@/components/RiskBreakdownBar";
 
 interface RegionPanelProps {
   regions: RegionSummary[];
@@ -56,8 +57,8 @@ export default function RegionPanel({
                 grade={selected.grade}
               />
               <p className="text-xs text-slate-500">
-                {dateLabel} 기준 {GRADE_LABEL[selected.grade]} — 시군 내 관광지
-                안전점수의 중앙값입니다.
+                {dateLabel} 기준 {GRADE_LABEL[selected.grade]} — 아래 지표 감점을
+                합산한 시군 대표 점수입니다.
               </p>
             </div>
           ) : (
@@ -72,6 +73,22 @@ export default function RegionPanel({
             {selected.placeCount}곳
           </strong>
         </p>
+
+        {/* 왜 이 점수인가 — 안전지수 산출 지표 시각화 (대표 관광지 기준) */}
+        {selected.factors.length > 0 && (
+          <div className="mt-4 border-t border-slate-100 pt-4">
+            <p className="mb-1 text-sm font-bold text-slate-800">
+              이 점수는 왜?
+            </p>
+            <p className="mb-3 text-xs text-slate-400">
+              날씨는 시군 야외 기준
+              {selected.sampleName ? `(${selected.sampleName})` : ""} · 응급의료·산사태는
+              시군 전체 집계
+            </p>
+            <RiskBreakdownBar factors={selected.factors} compact />
+          </div>
+        )}
+
         <div className="mt-5 flex flex-col gap-2">
           <Link
             href={hrefWith("/places", selected.sigunguCode)}
@@ -90,41 +107,38 @@ export default function RegionPanel({
     );
   }
 
+  const renderItem = (region: RegionSummary) => (
+    <li key={region.sigunguCode}>
+      <button
+        type="button"
+        onClick={() => onSelect(region.sigunguCode)}
+        className="flex w-full items-center justify-between gap-2 px-5 py-2.5 text-left transition-colors hover:bg-teal-50/60"
+      >
+        <span className="text-sm font-semibold text-slate-700">
+          {region.name}
+          <span className="ml-2 text-xs font-normal text-slate-400">
+            관광지 {region.placeCount}곳
+          </span>
+        </span>
+        {region.medianScore !== null && region.grade !== null ? (
+          <SafetyScoreBadge score={region.medianScore} grade={region.grade} />
+        ) : (
+          <span className="text-xs font-semibold text-slate-400">데이터 없음</span>
+        )}
+      </button>
+    </li>
+  );
+
   return (
     <aside className="flex flex-col rounded-2xl bg-white ring-1 ring-slate-200">
       <p className="border-b border-slate-100 px-5 py-3 text-sm font-bold text-slate-900">
         시군별 요약
         <span className="ml-2 text-xs font-medium text-slate-400">
-          지도나 목록에서 시군을 선택하세요
+          점수 높은 시군부터 · 지도나 목록에서 선택
         </span>
       </p>
-      <ul className="max-h-[420px] divide-y divide-slate-100 overflow-y-auto sm:max-h-[440px]">
-        {regions.map((region) => (
-          <li key={region.sigunguCode}>
-            <button
-              type="button"
-              onClick={() => onSelect(region.sigunguCode)}
-              className="flex w-full items-center justify-between gap-2 px-5 py-2.5 text-left transition-colors hover:bg-teal-50/60"
-            >
-              <span className="text-sm font-semibold text-slate-700">
-                {region.name}
-                <span className="ml-2 text-xs font-normal text-slate-400">
-                  관광지 {region.placeCount}곳
-                </span>
-              </span>
-              {region.medianScore !== null && region.grade !== null ? (
-                <SafetyScoreBadge
-                  score={region.medianScore}
-                  grade={region.grade}
-                />
-              ) : (
-                <span className="text-xs font-semibold text-slate-400">
-                  데이터 없음
-                </span>
-              )}
-            </button>
-          </li>
-        ))}
+      <ul className="max-h-[440px] divide-y divide-slate-100 overflow-y-auto">
+        {regions.map(renderItem)}
       </ul>
     </aside>
   );

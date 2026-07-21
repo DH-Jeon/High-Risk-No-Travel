@@ -93,6 +93,9 @@ export async function getLiveRiskInput(
       // 체감온도 — rainMm과 같은 패턴: REH 쌍이 없으면 삭제해 mock 잔존값 혼입 방지
       if (w.apparentTempC !== undefined) input.apparentTempC = w.apparentTempC;
       else delete input.apparentTempC;
+      // 일조(하늘상태 환산) — SKY 없으면 삭제해 TCI가 4축 재정규화
+      if (w.sunHours !== undefined) input.sunHours = w.sunHours;
+      else delete input.sunHours;
     }
   }
 
@@ -148,5 +151,7 @@ export async function getForecastRiskInput(
   else delete input.rainMm;
   if (w.apparentTempC !== undefined) input.apparentTempC = w.apparentTempC;
   else delete input.apparentTempC;
+  if (w.sunHours !== undefined) input.sunHours = w.sunHours;
+  else delete input.sunHours;
   return input;
 }

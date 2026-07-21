@@ -1,75 +1,88 @@
 import { describe, expect, it } from "vitest";
 import { summarizeRegions } from "@/lib/risk/region-summary";
-import { SIGUNGU_SEATS } from "@/lib/risk/regions";
 import type { PlaceWithSafety } from "@/lib/datasource";
+import type { PlaceEnvType } from "@/lib/tour/types";
+import type { RiskFactor } from "@/lib/safety/types";
 
-/** 집계에 필요한 최소 필드만 가진 mock */
-function mockPlace(sigunguCode: number | undefined, score: number): PlaceWithSafety {
-  return { sigunguCode, safety: { score } } as unknown as PlaceWithSafety;
+/** 요인 mock */
+function f(key: string, points: number, value = 0, description = ""): RiskFactor {
+  return {
+    key: key as RiskFactor["key"],
+    label: key,
+    value,
+    unit: "",
+    threshold: 0,
+    points,
+    maxPoints: 40,
+    level: "low",
+    description,
+  };
+}
+
+function mockPlace(
+  sigunguCode: number | undefined,
+  score: number,
+  opts: { factors?: RiskFactor[]; envType?: PlaceEnvType; title?: string } = {},
+): PlaceWithSafety {
+  const { factors = [], envType = "outdoor_general", title = "곳" } = opts;
+  return {
+    sigunguCode,
+    title,
+    envType,
+    safety: { score, factors },
+  } as unknown as PlaceWithSafety;
 }
 
 describe("summarizeRegions", () => {
-  it("18개 시군을 항상 코드 오름차순으로 반환한다 (빈 시군 포함)", () => {
+  it("18개 시군을 항상 반환한다 (빈 시군은 null)", () => {
     const result = summarizeRegions([]);
     expect(result).toHaveLength(18);
-    expect(result.map((r) => r.sigunguCode)).toEqual(
-      Object.keys(SIGUNGU_SEATS).map(Number).sort((a, b) => a - b),
-    );
     for (const region of result) {
       expect(region.placeCount).toBe(0);
       expect(region.medianScore).toBeNull();
       expect(region.grade).toBeNull();
-      expect(region.name).toBe(SIGUNGU_SEATS[region.sigunguCode].name);
     }
   });
 
-  it("홀수 개면 가운데 값이 중앙값", () => {
-    const result = summarizeRegions([
-      mockPlace(1, 90),
-      mockPlace(1, 50),
-      mockPlace(1, 72),
-    ]);
-    const gangneung = result.find((r) => r.sigunguCode === 1)!;
-    expect(gangneung.placeCount).toBe(3);
-    expect(gangneung.medianScore).toBe(72);
-    expect(gangneung.grade).toBe("low"); // gradeForScore: 70 이상 low
-  });
-
-  it("짝수 개면 가운데 두 값 평균을 반올림", () => {
-    const result = summarizeRegions([
-      mockPlace(13, 60),
-      mockPlace(13, 71),
-      mockPlace(13, 30),
-      mockPlace(13, 95),
-    ]);
-    const chuncheon = result.find((r) => r.sigunguCode === 13)!;
-    expect(chuncheon.placeCount).toBe(4);
-    expect(chuncheon.medianScore).toBe(66); // (60+71)/2 = 65.5 → 66
-    expect(chuncheon.grade).toBe("moderate"); // 40~69 moderate
-  });
-
-  it("시군별로 따로 그룹핑한다", () => {
+  it("시군별로 그룹핑하고 sigunguCode 없는 관광지는 제외", () => {
     const result = summarizeRegions([
       mockPlace(1, 80),
       mockPlace(2, 35),
-      mockPlace(1, 90),
+      mockPlace(undefined, 10),
     ]);
-    const gangneung = result.find((r) => r.sigunguCode === 1)!;
-    const goseong = result.find((r) => r.sigunguCode === 2)!;
-    expect(gangneung.medianScore).toBe(85);
-    expect(goseong.medianScore).toBe(35);
-    expect(goseong.grade).toBe("high"); // 40 미만 high
+    expect(result.find((r) => r.sigunguCode === 1)!.placeCount).toBe(1);
+    expect(result.find((r) => r.sigunguCode === 2)!.placeCount).toBe(1);
+    expect(result.reduce((s, r) => s + r.placeCount, 0)).toBe(2);
   });
 
-  it("sigunguCode가 없는 관광지는 집계에서 제외한다", () => {
+  it("시군 점수·분해 = 대표 야외 관광지 (점수와 분해가 같은 장소에서 옴)", () => {
     const result = summarizeRegions([
-      mockPlace(undefined, 10),
-      mockPlace(1, 80),
+      mockPlace(1, 76, { factors: [f("heat", 12), f("rain_wind", 8), f("pm", 4)] }),
     ]);
-    const gangneung = result.find((r) => r.sigunguCode === 1)!;
-    expect(gangneung.placeCount).toBe(1);
-    expect(gangneung.medianScore).toBe(80);
-    const totalCount = result.reduce((sum, r) => sum + r.placeCount, 0);
-    expect(totalCount).toBe(1);
+    const g = result.find((r) => r.sigunguCode === 1)!;
+    expect(g.medianScore).toBe(76); // 대표 장소 점수 그대로
+    expect(g.grade).toBe("low");
+    expect(g.factors.map((x) => x.key)).toEqual(["heat", "rain_wind", "pm"]);
+  });
+
+  it("실내 제외 야외장소를 대표로 (실내로 강수 축소 방지)", () => {
+    const result = summarizeRegions([
+      mockPlace(1, 95, { factors: [f("rain_wind", 3)], envType: "indoor" }),
+      mockPlace(1, 60, { factors: [f("rain_wind", 27)], envType: "outdoor_general" }),
+    ]);
+    const g = result.find((r) => r.sigunguCode === 1)!;
+    expect(g.medianScore).toBe(60); // 야외장소 점수 (실내 95 아님)
+    expect(g.factors.find((x) => x.key === "rain_wind")!.points).toBe(27);
+  });
+
+  it("응급의료 설명에 시군 커버리지(골든타임 이내 %) 추가", () => {
+    const result = summarizeRegions([
+      mockPlace(1, 90, { factors: [f("medical", 1, 5, "응급실 5km")] }), // ≤10km
+      mockPlace(1, 70, { factors: [f("medical", 3, 25, "응급실 25km")] }), // >10km
+    ]);
+    const med = result
+      .find((r) => r.sigunguCode === 1)!
+      .factors.find((x) => x.key === "medical")!;
+    expect(med.description).toContain("50%"); // 2곳 중 1곳만 골든타임 이내
   });
 });

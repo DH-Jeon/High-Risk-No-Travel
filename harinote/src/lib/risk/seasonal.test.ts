@@ -55,14 +55,15 @@ describe("seasonalRange", () => {
     expect(seasonalRange({ ...gangneungPlace, sigunguCode: 99 }, 7)).toBeNull();
   });
 
-  it("16b 데모 대조: 미산계곡(인제) 7월 — 통상 81 · 궂은날 66 (±3, er 산출 차 허용)", async () => {
+  it("TCI 모델: 미산계곡(인제) 7월 — 통상은 양호, 궂은날은 호우·산사태로 급락", async () => {
     const places = await getPlaces({ q: "미산계곡" });
     expect(places.length).toBeGreaterThan(0);
     const misan = places[0];
     const r = seasonalRange(misan, 7)!;
-    expect(r.typical.score).toBeGreaterThanOrEqual(78);
-    expect(r.typical.score).toBeLessThanOrEqual(84);
-    expect(r.bad.score).toBeGreaterThanOrEqual(63);
-    expect(r.bad.score).toBeLessThanOrEqual(69);
+    // 여름 계곡: 통상일은 무난, 궂은날(호우)은 계곡 강수 가중+산사태로 방문 자제 수준
+    expect(r.typical.score).toBeGreaterThanOrEqual(56);
+    expect(r.typical.score).toBeLessThanOrEqual(72);
+    expect(r.bad.score).toBeLessThan(r.typical.score - 20);
+    expect(r.bad.score).toBeLessThanOrEqual(35);
   });
 });
