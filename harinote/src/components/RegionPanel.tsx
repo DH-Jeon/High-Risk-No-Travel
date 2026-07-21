@@ -9,6 +9,11 @@ import RiskBreakdownBar from "@/components/RiskBreakdownBar";
 /** 산사태 경고 단계 라벨 (0 없음 · 1 주의보 · 2 경보) */
 const LANDSLIDE_ALERT_LABEL = ["", "주의보", "경보"] as const;
 
+/** 산사태 배지 강도 — 위험노출 비율이 높을수록 진하게(옅음·중간·진함) */
+function landslideBadgeOpacity(pct: number): string {
+  return pct >= 50 ? "opacity-100" : pct >= 20 ? "opacity-70" : "opacity-40";
+}
+
 interface RegionPanelProps {
   regions: RegionSummary[];
   selectedCode: number | null;
@@ -78,10 +83,9 @@ export default function RegionPanel({
         </p>
 
         {selected.landslideAlert > 0 && (
-          <div className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold leading-relaxed text-amber-800 ring-1 ring-amber-200">
-            ⚠️ 이 시군 산악·급경사지에 산사태{" "}
-            {LANDSLIDE_ALERT_LABEL[selected.landslideAlert]} — 산지·계곡 방문 시
-            주의하세요 (대표 점수엔 미반영)
+          <div className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 ring-1 ring-amber-200">
+            ⚠️ 산악·계곡 산사태 {LANDSLIDE_ALERT_LABEL[selected.landslideAlert]} · 관광지{" "}
+            {selected.landslideExposurePct}% 위험구역
           </div>
         )}
 
@@ -134,9 +138,9 @@ export default function RegionPanel({
         <span className="flex shrink-0 items-center gap-1.5">
           {region.landslideAlert > 0 && (
             <span
-              className="text-sm text-amber-500"
-              title={`산악지 산사태 ${LANDSLIDE_ALERT_LABEL[region.landslideAlert]}`}
-              aria-label={`산악지 산사태 ${LANDSLIDE_ALERT_LABEL[region.landslideAlert]} 주의`}
+              className={`text-sm ${landslideBadgeOpacity(region.landslideExposurePct)}`}
+              title={`산사태 ${LANDSLIDE_ALERT_LABEL[region.landslideAlert]} · 관광지 ${region.landslideExposurePct}% 위험구역`}
+              aria-label={`산사태 ${LANDSLIDE_ALERT_LABEL[region.landslideAlert]} 노출 ${region.landslideExposurePct}%`}
             >
               ⚠️
             </span>
