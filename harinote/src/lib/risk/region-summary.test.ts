@@ -97,14 +97,34 @@ describe("summarizeRegions", () => {
     expect(g.medianScore).toBe(86); // 대표 90 − (5−1) 집계 차이
   });
 
-  it("산악지 산사태는 시군 점수엔 안 넣고 landslideAlert로 표시(전 지역 침몰 방지)", () => {
+  it("산사태는 노출 비율×상한(15)으로 소폭 반영 + 최고단계는 landslideAlert 배지", () => {
     const g = summarizeRegions([
       mockPlace(1, 88, { factors: [f("heat", 12)], envType: "outdoor_general" }),
-      // 산악지: 산사태 주의보(value=1, 감점45) — 대표(일반)엔 없음
+      // 2곳 중 1곳(산악지)만 주의보(value=1) → 노출 50%
       mockPlace(1, 40, { factors: [f("landslide", 45, 1)], envType: "outdoor_mountain" }),
     ]).find((r) => r.sigunguCode === 1)!;
-    expect(g.medianScore).toBe(88); // 전형(대표 일반지) 기준 — 산악 45가 헤드라인 안 끌어내림
-    expect(g.factors.some((x) => x.key === "landslide")).toBe(false); // 점수 요인엔 없음
-    expect(g.landslideAlert).toBe(1); // 산악지 위험은 배지 신호로 노출
+    const ls = g.factors.find((x) => x.key === "landslide")!;
+    expect(ls.points).toBe(8); // 노출 50%×15=7.5→8 (최악 45를 헤드라인에 박지 않음)
+    expect(ls.value).toBe(50);
+    expect(ls.description).toContain("50%");
+    expect(g.medianScore).toBe(80); // 대표 88 − 시군 산사태 8
+    expect(g.landslideAlert).toBe(1); // 최고 단계는 배지로
+  });
+
+  it("경보(value=2)는 주의보보다 2배 가중 → 감점 더 큼", () => {
+    // 안전한 일반지 1곳을 섞어 비포화 상태로 — 그래야 2배 가중 차이가 드러남
+    const watch = summarizeRegions([
+      mockPlace(2, 90, { factors: [f("landslide", 45, 1)], envType: "outdoor_mountain" }),
+      mockPlace(2, 90, { factors: [], envType: "outdoor_general" }),
+    ]).find((r) => r.sigunguCode === 2)!;
+    const warn = summarizeRegions([
+      mockPlace(2, 90, { factors: [f("landslide", 80, 2)], envType: "outdoor_mountain" }),
+      mockPlace(2, 90, { factors: [], envType: "outdoor_general" }),
+    ]).find((r) => r.sigunguCode === 2)!;
+    const wp = warn.factors.find((x) => x.key === "landslide")!.points;
+    const cp = watch.factors.find((x) => x.key === "landslide")!.points;
+    expect(cp).toBe(8); // 노출 50%(주의보)×15 = 7.5→8
+    expect(wp).toBe(15); // 경보 ×2 → 노출 100%×15 = 15
+    expect(wp).toBeGreaterThan(cp);
   });
 });
