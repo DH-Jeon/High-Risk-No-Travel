@@ -39,12 +39,10 @@ export interface RegionSummary {
   factors: RiskFactor[];
   /** factors의 출처가 된 대표 관광지 이름 (없으면 null) */
   sampleName: string | null;
-  /**
-   * 시군 내 최고 산사태 단계(0 없음·1 주의보·2 경보) — 특정 산악·급경사지 경고용.
-   * 대표 점수엔 넣지 않는다: 강원은 시군마다 산악지가 있어 최악지를 헤드라인에 박으면
-   * 전 지역이 위험해 보여 변별력이 사라진다(특보도 대상 지역을 좁혀 알림). 배지로 노출.
-   */
+  /** 시군 내 최고 산사태 단계(0 없음·1 주의보·2 경보) — 배지 라벨용. */
   landslideAlert: 0 | 1 | 2;
+  /** 시군 관광지 중 산사태 위험 구역(주의보+) 비율(%) — 배지 강도(옅음·진함) 차등용. */
+  landslideExposurePct: number;
 }
 
 /**
@@ -93,6 +91,7 @@ export function summarizeRegions(places: PlaceWithSafety[]): RegionSummary[] {
       let factors: RiskFactor[] = [];
       let sampleName: string | null = null;
       let landslideAlert: 0 | 1 | 2 = 0;
+      let landslideExposurePct = 0;
       if (scores.length > 0) {
         const anchor = median(scores);
         const general = group.filter((p) => p.envType === "outdoor_general");
@@ -141,6 +140,7 @@ export function summarizeRegions(places: PlaceWithSafety[]): RegionSummary[] {
         const exposure = Math.min(1, (watchN + 2 * warnN) / group.length);
         const landslidePts = Math.round(exposure * LANDSLIDE_REGION_CAP);
         const exposedPct = Math.round(((watchN + warnN) / group.length) * 100);
+        landslideExposurePct = exposedPct;
         const repLandslide = repFactors.find((f) => f.key === "landslide");
 
         // 점수 = 대표 점수 − (의료·산사태 시군집계 차이). 100−요인 감점 합과 일치.
@@ -193,6 +193,7 @@ export function summarizeRegions(places: PlaceWithSafety[]): RegionSummary[] {
         factors,
         sampleName,
         landslideAlert,
+        landslideExposurePct,
       };
     })
     // 안전점수 높은 시군부터 (데이터 없는 곳은 맨 뒤)
