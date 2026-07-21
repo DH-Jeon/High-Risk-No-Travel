@@ -66,7 +66,7 @@ export default function SafetyScoreBadge({
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${s.pill}`}
+      className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${s.pill}`}
     >
       <span className={`h-2 w-2 rounded-full ${s.dot}`} />
       <span className="tabular-nums">{score}점</span>
