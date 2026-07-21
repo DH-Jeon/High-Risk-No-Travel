@@ -97,14 +97,14 @@ describe("summarizeRegions", () => {
     expect(g.medianScore).toBe(86); // 대표 90 − (5−1) 집계 차이
   });
 
-  it("산사태는 시군 최악 노출지(프록시 최댓값) — 대표(일반)엔 없어도 산악지 위험 포함", () => {
+  it("산악지 산사태는 시군 점수엔 안 넣고 landslideAlert로 표시(전 지역 침몰 방지)", () => {
     const g = summarizeRegions([
       mockPlace(1, 88, { factors: [f("heat", 12)], envType: "outdoor_general" }),
-      mockPlace(1, 40, { factors: [f("landslide", 45)], envType: "outdoor_mountain" }),
+      // 산악지: 산사태 주의보(value=1, 감점45) — 대표(일반)엔 없음
+      mockPlace(1, 40, { factors: [f("landslide", 45, 1)], envType: "outdoor_mountain" }),
     ]).find((r) => r.sigunguCode === 1)!;
-    const ls = g.factors.find((x) => x.key === "landslide");
-    expect(ls?.points).toBe(45); // 대표(일반, 산사태 없음) 아니라 시군 산악지 45
-    expect(ls?.description).toContain("산사태 위험지역 포함");
-    expect(g.medianScore).toBe(43); // 대표 88 − 시군 산사태 45
+    expect(g.medianScore).toBe(88); // 전형(대표 일반지) 기준 — 산악 45가 헤드라인 안 끌어내림
+    expect(g.factors.some((x) => x.key === "landslide")).toBe(false); // 점수 요인엔 없음
+    expect(g.landslideAlert).toBe(1); // 산악지 위험은 배지 신호로 노출
   });
 });

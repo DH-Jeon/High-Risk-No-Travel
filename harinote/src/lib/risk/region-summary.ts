@@ -24,20 +24,27 @@ export interface RegionSummary {
   lat: number;
   lng: number;
   /**
-   * 시군 대표 안전점수 = 대표 야외 관광지(중앙값 최근접) 점수에서, 장소 편차가 큰
-   * 응급의료(시군 중앙값)·산사태(시군 최악)만 시군 집계로 보정한 값. 0곳이면 null.
+   * 시군 대표 안전점수 = 대표 야외 관광지(중앙값 최근접) 점수에서, 응급의료만 시군
+   * 중앙값으로 보정한 값(전형 기준). 산사태는 특정 산악지 국한이라 점수엔 미반영 —
+   * landslideAlert 배지로 별도 노출. 0곳이면 null.
    */
   medianScore: number | null;
   /** 대표 점수의 등급(gradeForScore) — 관광지 0곳이면 null */
   grade: RiskLevel | null;
   placeCount: number;
   /**
-   * "이 점수가 왜 나왔나" 요인 분해 — 날씨·산불은 대표 관광지(sampleName) 값,
-   * 응급의료·산사태는 시군 집계값. 0곳이면 []. 점수(medianScore)=요인 감점 합 유지.
+   * "이 점수가 왜 나왔나" 요인 분해 — 날씨·산불·산사태는 대표 관광지(sampleName) 값,
+   * 응급의료는 시군 중앙값. 0곳이면 []. 점수(medianScore)=요인 감점 합 유지.
    */
   factors: RiskFactor[];
   /** factors의 출처가 된 대표 관광지 이름 (없으면 null) */
   sampleName: string | null;
+  /**
+   * 시군 내 최고 산사태 단계(0 없음·1 주의보·2 경보) — 특정 산악·급경사지 경고용.
+   * 대표 점수엔 넣지 않는다: 강원은 시군마다 산악지가 있어 최악지를 헤드라인에 박으면
+   * 전 지역이 위험해 보여 변별력이 사라진다(특보도 대상 지역을 좁혀 알림). 배지로 노출.
+   */
+  landslideAlert: 0 | 1 | 2;
 }
 
 /** 정렬된 배열의 중앙값 — 짝수 개면 가운데 두 값 평균을 반올림 */
@@ -70,14 +77,15 @@ export function summarizeRegions(places: PlaceWithSafety[]): RegionSummary[] {
       const scores = group.map((p) => p.safety.score).sort((a, b) => a - b);
 
       // 시군 대표 = 실내 제외 야외장소 중 점수가 중앙값에 가장 가까운 곳(medoid).
-      // 검증1 하이브리드(da-methodologist): 장소마다 다른 쾌적(날씨)·산불은 대표 장소값을
-      // 쓰되, 장소별 편차가 큰 응급의료(시군 중앙값)·산사태(시군 최악 노출)는 시군 집계로
-      // 대체한다 — 대표 1곳이 우연히 병원 근처라 시군이 안전해 보이는 편향을 막는다.
-      // 점수는 대표 점수에서 이 두 요인의 집계 차이만 반영(delta)하므로 점수=요인 감점 합 유지.
+      // 검증1 하이브리드(da-methodologist): 날씨·산불·산사태는 대표 장소값, 장소 편차가
+      // 큰 응급의료만 시군 중앙값으로 보정한다(대표 1곳이 우연히 병원 근처라 안전해 보이는
+      // 편향 방지). 산사태는 특정 산악지 국한이라 시군 최고 단계를 별도 landslideAlert로만
+      // 노출하고 점수엔 안 넣는다(전 지역 침몰 방지). 점수=요인 감점 합 유지.
       let medianScore: number | null = null;
       let grade: RiskLevel | null = null;
       let factors: RiskFactor[] = [];
       let sampleName: string | null = null;
+      let landslideAlert: 0 | 1 | 2 = 0;
       if (scores.length > 0) {
         const anchor = median(scores);
         const general = group.filter((p) => p.envType === "outdoor_general");
@@ -110,45 +118,33 @@ export function summarizeRegions(places: PlaceWithSafety[]): RegionSummary[] {
               )
             : null;
 
-        // 산사태 — 시군 내 최악 노출지(프록시 최댓값). 맑은 날엔 전부 0이라 무변화.
-        let worstLs: RiskFactor | undefined;
+        // 산사태 경고 — 시군 내 최고 단계(산악지 등 국한 위험). 점수엔 미반영, 배지 신호.
         for (const p of group) {
-          const lf = p.safety.factors?.find((f) => f.key === "landslide");
-          if (lf && (!worstLs || lf.points > worstLs.points)) worstLs = lf;
+          const lv = (p.safety.factors?.find((f) => f.key === "landslide")?.value ?? 0) as number;
+          if (lv > landslideAlert) landslideAlert = Math.min(2, Math.round(lv)) as 0 | 1 | 2;
         }
 
-        // 점수 = 대표 점수 − (의료·산사태 집계 차이). 100−요인 감점 합과 항상 일치.
-        const repLandslide = repFactors.find((f) => f.key === "landslide");
-        const delta =
-          newMedPts - (repMedical?.points ?? 0) +
-          ((worstLs?.points ?? 0) - (repLandslide?.points ?? 0));
+        // 점수 = 대표 점수 − (의료 집계 차이). 100−요인 감점 합과 항상 일치.
+        const delta = newMedPts - (repMedical?.points ?? 0);
         medianScore = Math.max(0, Math.min(100, rep.safety.score - delta));
         grade = gradeForScore(medianScore);
 
-        // 요인 분해 — 산불·날씨는 대표값 유지, 의료·산사태는 시군 집계로 교체.
-        factors = repFactors
-          .filter((f) => f.key !== "landslide")
-          .map((f) =>
-            f.key === "medical"
-              ? {
-                  ...f,
-                  value: newMedKm,
-                  points: newMedPts,
-                  level: levelForPoints(newMedPts, MEDICAL.MAX_POINTS),
-                  description: `최근접 응급의료기관 시군 중앙값 ${newMedKm}km${
-                    within !== null
-                      ? ` · 관광지 ${within}%가 골든타임(${MEDICAL.NEAR_KM}km) 이내`
-                      : ""
-                  }`,
-                }
-              : f,
-          );
-        if (worstLs) {
-          factors.push({
-            ...worstLs,
-            description: `${worstLs.description} · 시군 내 산사태 위험지역 포함`,
-          });
-        }
+        // 요인 분해 — 날씨·산불·산사태는 대표장소 값 유지, 의료만 시군 중앙값으로 교체.
+        factors = repFactors.map((f) =>
+          f.key === "medical"
+            ? {
+                ...f,
+                value: newMedKm,
+                points: newMedPts,
+                level: levelForPoints(newMedPts, MEDICAL.MAX_POINTS),
+                description: `최근접 응급의료기관 시군 중앙값 ${newMedKm}km${
+                  within !== null
+                    ? ` · 관광지 ${within}%가 골든타임(${MEDICAL.NEAR_KM}km) 이내`
+                    : ""
+                }`,
+              }
+            : f,
+        );
       }
       return {
         sigunguCode: code,
@@ -160,6 +156,7 @@ export function summarizeRegions(places: PlaceWithSafety[]): RegionSummary[] {
         placeCount: scores.length,
         factors,
         sampleName,
+        landslideAlert,
       };
     })
     // 안전점수 높은 시군부터 (데이터 없는 곳은 맨 뒤)
